@@ -1,5 +1,6 @@
-# Http-Server 
-This serves to wrap existing http server libraries and provide them in an easy-to-consume sdk.
+# Rakurai-Http-Server 
+
+Our very own Http server.
 
 ## Adding to your project
 
@@ -14,8 +15,8 @@ This serves to wrap existing http server libraries and provide them in an easy-t
 
     <dependencies>
         <dependency>
-            <groupId>com.github.casterlabs.rakurai</groupId>
-            <artifactId>Http-Server</artifactId>
+            <groupId>co.casterlabs</groupId>
+            <artifactId>Rakurai-Http-Server</artifactId>
             <version>VERSION</version>
             <scope>compile</scope>
         </dependency>
@@ -31,14 +32,13 @@ This serves to wrap existing http server libraries and provide them in an easy-t
 	}
 
     dependencies {
-        implementation 'com.github.casterlabs.rakurai:Http-Server:VERSION'
+        implementation 'co.casterlabs:Rakurai-Http-Server:VERSION'
     }
 ```
 
 ## Example Code
 ```java
-HttpServer server = HttpServerBuilder
-    .getUndertowBuilder()
+HttpServer server = new HttpServerBuilder()
     .setPort(8080)
     .build(new HttpListener() {
 
