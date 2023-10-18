@@ -176,8 +176,6 @@ public class HttpResponse {
 
         @Override
         public void write(OutputStream out) throws IOException {
-            // Automatically uses the content length or 16MB for the IO buffer, whichever is
-            // smallest.
             StreamUtil.streamTransfer(
                 this.response,
                 out,

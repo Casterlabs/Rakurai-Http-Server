@@ -196,7 +196,7 @@ class RakuraiHttpServer implements HttpServer {
                     // Note that response will always be null at this location IF session isn't.
                     if (session != null) {
                         sessionLogger.trace("Serving session...");
-                        httpResponse = this.listener.serveSession(session.getHost(), session, this.isSecure);
+                        httpResponse = this.listener.serveHttpSession(session);
                     }
 
                     sessionLogger.trace("Served.");
@@ -211,7 +211,7 @@ class RakuraiHttpServer implements HttpServer {
                     sessionLogger.trace("Handling websocket request...");
 
                     if (session != null) {
-                        websocketListener = this.listener.serveWebsocketSession(session.getHost(), session, this.isSecure);
+                        websocketListener = this.listener.serveWebsocketSession(session);
                     }
 
                     if (websocketListener == null) throw new DropConnectionException();

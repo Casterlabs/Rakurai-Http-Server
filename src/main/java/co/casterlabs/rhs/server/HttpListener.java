@@ -9,8 +9,8 @@ import lombok.NonNull;
 
 public interface HttpListener {
 
-    public @Nullable HttpResponse serveSession(@NonNull String host, @NonNull HttpSession session, boolean secure);
+    public @Nullable HttpResponse serveHttpSession(@NonNull HttpSession session);
 
-    public @Nullable WebsocketListener serveWebsocketSession(@NonNull String host, @NonNull WebsocketSession session, boolean secure);
+    public @Nullable WebsocketListener serveWebsocketSession(@NonNull WebsocketSession session);
 
 }
