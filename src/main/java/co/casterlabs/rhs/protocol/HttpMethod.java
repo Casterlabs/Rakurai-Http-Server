@@ -5,6 +5,7 @@ public enum HttpMethod {
     /* Data */
     GET,
     HEAD,
+    QUERY, // Draft.
 
     /* Modifications */
     POST,
