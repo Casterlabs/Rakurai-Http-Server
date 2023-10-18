@@ -15,19 +15,24 @@ import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.GZIPOutputStream;
 
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+
+import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
 import co.casterlabs.rhs.protocol.HttpStatus;
 import co.casterlabs.rhs.protocol.HttpVersion;
 import co.casterlabs.rhs.server.HttpResponse;
-import co.casterlabs.rhs.server.HttpServerUtil;
+import co.casterlabs.rhs.server.HttpResponse.ResponseContent;
 import co.casterlabs.rhs.session.HttpSession;
 import co.casterlabs.rhs.session.TLSVersion;
 import co.casterlabs.rhs.util.HeaderMap;
@@ -367,12 +372,18 @@ abstract class HttpProtocol {
     /* Response/Output  */
     /* ---------------- */
 
+    private static enum ResponseMode {
+        CLOSE_ON_COMPLETE,
+        FIXED_LENGTH,
+        CHUNKED
+    }
+
     public static void writeOutResponse(Socket client, HttpSession session, boolean keepConnectionAlive, HttpResponse response) throws IOException {
         OutputStream out = client.getOutputStream();
 
         // Write out status and headers.
         String contentEncoding = null;
-        boolean useChunkedResponse = false;
+        ResponseMode responseMode = null;
 
         // 0.9 doesn't have a status line or anything, so we don't write it out.
         if (session.getVersion().value >= 1.0) {
@@ -384,36 +395,49 @@ abstract class HttpProtocol {
             HttpProtocol.writeString(response.getStatus().getStatusString(), out);
             HttpProtocol.writeString("\r\n", out);
 
-            if (keepConnectionAlive) {
-                // Add the keepalive headers.
-                response.putHeader("Connection", "keep-alive");
-                response.putHeader("Keep-Alive", "timeout=" + HTTP_PERSISTENT_TIMEOUT);
-            } else {
-                // Let the client know that we will be closing the socket.
-                response.putHeader("Connection", "close");
-            }
-
-            // Write out a Date header for HTTP/1.1 requests with a non-100 status code.
-            if ((session.getVersion().value >= 1.1) && (response.getStatus().getStatusCode() >= 200)) {
-                response.putHeader("Date", HttpProtocol.getHttpTime());
-            }
-
             if (!response.hasHeader("Content-Type")) {
                 response.putHeader("Content-Type", "application/octet-stream");
             }
 
-            // Response content stuff.
-            contentEncoding = HttpServerUtil.pickEncoding(session, response);
             long length = response.getContent().getLength();
-            if ((length == -1) || (contentEncoding != null)) {
-                if (session.getVersion() == HttpVersion.HTTP_1_0) {
-                    throw new IOException("Chunked responses are not acceptable for HTTP/1.0 requests, dropping.");
+
+            if (session.getVersion() == HttpVersion.HTTP_1_0) {
+                if (length == -1) {
+                    responseMode = ResponseMode.CLOSE_ON_COMPLETE;
+                } else {
+                    responseMode = ResponseMode.FIXED_LENGTH;
+                }
+            } else {
+                contentEncoding = pickEncoding(session, response);
+
+                if (length == -1 || contentEncoding != null) {
+                    // We always chunk compressed responses. This is to avoid some jank in our code
+                    // :P
+                    response.putHeader("Transfer-Encoding", "chunked");
+                    responseMode = ResponseMode.CHUNKED;
+                } else {
+                    responseMode = ResponseMode.FIXED_LENGTH;
+                    response.putHeader("Content-Length", String.valueOf(length));
                 }
 
-                response.putHeader("Transfer-Encoding", "chunked");
-                useChunkedResponse = true;
-            } else {
-                response.putHeader("Content-Length", String.valueOf(length));
+                if (keepConnectionAlive) {
+                    // Add the keepalive headers.
+                    response.putHeader("Connection", "keep-alive");
+                    response.putHeader("Keep-Alive", "timeout=" + HTTP_PERSISTENT_TIMEOUT);
+                } else {
+                    // Let the client know that we will be closing the socket.
+                    response.putHeader("Connection", "close");
+                }
+
+                // Write out a Date header for HTTP/1.1 requests with a non-100 status code.
+                if ((session.getVersion().value >= 1.1) && (response.getStatus().getStatusCode() >= 200)) {
+                    response.putHeader("Date", HttpProtocol.getHttpTime());
+                }
+
+                if (contentEncoding != null) {
+                    response.putHeader("Content-Encoding", contentEncoding);
+                    response.putHeader("Vary", "Accept-Encoding");
+                }
             }
 
             session.getLogger().debug("Response headers: %s", response.getAllHeaders());
@@ -431,20 +455,111 @@ abstract class HttpProtocol {
         }
 
         try {
-            if (useChunkedResponse) {
+            if (responseMode == ResponseMode.CHUNKED) {
                 out = new HttpChunkedOutputStream(out);
             } else {
                 out = new NonCloseableOutputStream(out);
             }
 
             // Write out the response, defaulting to non-encoded responses.
-            HttpServerUtil.writeWithEncoding(contentEncoding, out, response.getContent());
+            writeWithEncoding(contentEncoding, out, response.getContent());
         } finally {
             // Chunked output streams have special close implementations that don't actually
             // close the underlying connection, they just signal that this is the end of the
-            // request. Regardless, we log the exact amount of bytes written for both
-            // fixed-length and chunked requets for debugging purposes.
+            // request.
             out.close();
+        }
+    }
+
+    /* ---------------- */
+    /* Response Encoding */
+    /* ---------------- */
+
+    private static boolean shouldCompress(@Nullable String mimeType) {
+        if (mimeType == null) return false;
+
+        // Source: https://cdn.jsdelivr.net/gh/jshttp/mime-db@master/db.json
+
+        // Literal text.
+        if (mimeType.startsWith("text/")) return true;
+        if (mimeType.endsWith("+text")) return true;
+
+        // Compressible data types.
+        if (mimeType.endsWith("json")) return true;
+        if (mimeType.endsWith("xml")) return true;
+        if (mimeType.endsWith("csv")) return true;
+
+        // Other.
+        if (mimeType.equals("application/javascript") || mimeType.equals("application/x-javascript")) return true;
+        if (mimeType.equals("image/bmp")) return true;
+        if (mimeType.equals("image/vnd.adobe.photoshop")) return true;
+        if (mimeType.equals("image/vnd.microsoft.icon") || mimeType.equals("image/x-icon")) return true;
+        if (mimeType.equals("application/tar") || mimeType.equals("application/x-tar")) return true;
+        if (mimeType.equals("application/wasm")) return true;
+
+        return false;
+    }
+
+    private static List<String> getAcceptedEncodings(HttpSession session) {
+        List<String> accepted = new LinkedList<>();
+
+        for (String value : session.getHeaders().getOrDefault("Accept-Encoding", Collections.emptyList())) {
+            String[] split = value.split(", ");
+            for (String encoding : split) {
+                accepted.add(encoding.toLowerCase());
+            }
+        }
+
+        return accepted;
+    }
+
+    private static String pickEncoding(HttpSession session, HttpResponse response) {
+        if (session.getVersion().value <= 1.0) {
+            return null;
+        }
+
+        if (!shouldCompress(response.getAllHeaders().get("Content-Type"))) {
+            session.getLogger().debug("Format does not appear to be compressible, sending without encoding.");
+        }
+
+        List<String> acceptedEncodings = getAcceptedEncodings(session);
+
+        // Order of our preference.
+        if (acceptedEncodings.contains("gzip")) {
+            session.getLogger().debug("Client supports GZip encoding, using that.");
+            return "gzip";
+        } else if (acceptedEncodings.contains("deflate")) {
+            session.getLogger().debug("Client supports Deflate encoding, using that.");
+            return "deflate";
+        }
+        // Brotli looks to be difficult. Not going to be supported for a while.
+
+        return null;
+    }
+
+    public static void writeWithEncoding(@Nullable String encoding, OutputStream out, ResponseContent content) throws IOException {
+        if (encoding == null) {
+            encoding = ""; // Switch doesn't support nulls :/
+        }
+
+        switch (encoding) {
+            case "gzip": {
+                GZIPOutputStream enc = new GZIPOutputStream(out);
+                content.write(enc);
+                enc.finish(); // Do not close.
+                break;
+            }
+
+            case "deflate": {
+                DeflaterOutputStream enc = new DeflaterOutputStream(out);
+                content.write(enc);
+                enc.finish(); // Do not close.
+                break;
+            }
+
+            default:
+                content.write(out);
+                break;
         }
     }
 
