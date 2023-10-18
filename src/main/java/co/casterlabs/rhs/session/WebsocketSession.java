@@ -2,7 +2,6 @@ package co.casterlabs.rhs.session;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -35,14 +34,14 @@ public abstract class WebsocketSession extends HttpSession {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * @deprecated Websockets do not support this.
-     */
-    @Deprecated
-    @Override
-    public Map<String, String> parseFormBody() throws IOException {
-        throw new UnsupportedOperationException();
-    }
+//    /**
+//     * @deprecated Websockets do not support this.
+//     */
+//    @Deprecated
+//    @Override
+//    public Either<MultipartForm, URLEncodedForm> parseFormBody() throws IOException {
+//        throw new UnsupportedOperationException();
+//    }
 
     /**
      * @deprecated Websockets do not support this.

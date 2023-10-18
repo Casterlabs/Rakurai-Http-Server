@@ -131,10 +131,20 @@ public abstract class HttpSession {
 
     public abstract @Nullable InputStream getRequestBodyStream() throws IOException;
 
-    public Map<String, String> parseFormBody() throws IOException {
-        // TODO
-        return null;
-    }
+//    /**
+//     * @return either a form body (multipart) or a map (url encoded).
+//     */
+//    public Either<MultipartForm, URLEncodedForm> parseFormBody() throws IOException {
+//        String mime = this.getBodyMimeType();
+//
+//        if (mime.equals("application/x-www-form-urlencoded")) {
+//            return URLEncodedForm.parse(this);
+//        } else if (mime.startsWith("multipart/form-data;boundary=")) {
+//            throw new IOException("Multipart form data is unsupported at this time.");
+//        } else {
+//            throw new IOException("Unsupported form body type: " + mime);
+//        }
+//    }
 
     // Server info
     /**
