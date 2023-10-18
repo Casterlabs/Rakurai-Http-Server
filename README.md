@@ -1,10 +1,11 @@
-# Rakurai-Http-Server 
+# Rakurai-Http-Server
 
 Our very own Http server.
 
 ## Adding to your project
 
 ### Maven
+
 ```xml
     <repositories>
         <repository>
@@ -24,6 +25,7 @@ Our very own Http server.
 ```
 
 ### Gradle
+
 ```gradle
     allprojects {
         repositories {
@@ -37,24 +39,23 @@ Our very own Http server.
 ```
 
 ## Example Code
+
 ```java
 HttpServer server = new HttpServerBuilder()
     .setPort(8080)
     .build(new HttpListener() {
-
-    @Override
-    public @Nullable HttpResponse serveSession(@NonNull String host, @NonNull HttpSession session, boolean secure) {
-        String body = String.format("Hello %s!", session.getRemoteIpAddress());
-
-        return HttpResponse.newFixedLengthResponse(StandardHttpStatus.OK, body);
-    }
-
-    @Override
-    public @Nullable WebsocketListener serveWebsocketSession(@NonNull String host, @NonNull WebsocketSession session, boolean secure) {
-        // Returning null will drop the connection.
-        return null;
-    }
-});
-
+        @Override
+        public @Nullable HttpResponse serveHttpSession(@NonNull HttpSession session) {
+            String body = String.format("Hello %s!", session.getRemoteIpAddress());
+            return HttpResponse
+                .newFixedLengthResponse(StandardHttpStatus.OK, body)
+                .setMimeType("text/plain");
+        }
+        @Override
+        public @Nullable WebsocketListener serveWebsocketSession(@NonNull WebsocketSession session) {
+            // Returning null will drop the connection.
+            return null;
+        }
+    });
 server.start(); // Open up http://127.0.0.1:8080
 ```
