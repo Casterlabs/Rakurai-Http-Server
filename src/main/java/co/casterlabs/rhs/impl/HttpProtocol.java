@@ -520,6 +520,7 @@ abstract class HttpProtocol {
 
         if (!shouldCompress(response.getAllHeaders().get("Content-Type"))) {
             session.getLogger().debug("Format does not appear to be compressible, sending without encoding.");
+            return null;
         }
 
         List<String> acceptedEncodings = getAcceptedEncodings(session);
