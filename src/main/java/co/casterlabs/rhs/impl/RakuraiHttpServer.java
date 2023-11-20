@@ -31,6 +31,7 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import co.casterlabs.rhs.protocol.HttpMethod;
 import co.casterlabs.rhs.protocol.HttpVersion;
 import co.casterlabs.rhs.server.HttpListener;
 import co.casterlabs.rhs.server.HttpResponse;
@@ -155,6 +156,11 @@ class RakuraiHttpServer implements HttpServer {
 
                             switch (upgradeTo.toLowerCase()) {
                                 case "websocket": {
+                                    if (session.getMethod() != HttpMethod.GET) {
+                                        sessionLogger.trace("Rejecting websocket upgrade, method was %s.", session.getRawMethod());
+                                        clientSocket.getOutputStream().write(HTTP_1_1_UPGRADE_REJECT);
+                                        return false;
+                                    }
                                     protocol = "websocket";
                                     sessionLogger.trace("Upgrading to: websocket.");
                                     break;
