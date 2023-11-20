@@ -45,7 +45,7 @@ import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 @Getter
 class RakuraiHttpServer implements HttpServer {
     private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Bad Request\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
-    private static final byte[] HTTP_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
+    private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
 
     private final FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
 
@@ -182,7 +182,7 @@ class RakuraiHttpServer implements HttpServer {
                     if (expect != null) {
                         if (expect.contains("100-continue")) {
                             // Immediately write a CONTINUE so that the client will send the body.
-                            clientSocket.getOutputStream().write(HTTP_CONTINUE_LINE);
+                            clientSocket.getOutputStream().write(HTTP_1_1_CONTINUE_LINE);
                             session.getLogger().trace("Response status line: HTTP/1.1 100 Continue");
                         }
                     }
