@@ -54,7 +54,7 @@ class RakuraiHttpServer implements HttpServer {
 
     private final ExecutorService executor = Executors.newCachedThreadPool(); // TODO maybe a better one?
 
-    private List<Socket> connectedClients = new LinkedList<>();
+    private List<Socket> connectedClients = Collections.synchronizedList(new LinkedList<>());
     private ServerSocket serverSocket;
     private boolean isSecure;
 
