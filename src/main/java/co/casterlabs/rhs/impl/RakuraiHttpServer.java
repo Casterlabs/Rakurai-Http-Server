@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -209,6 +210,14 @@ class RakuraiHttpServer implements HttpServer {
 
                     if (httpResponse == null) throw new DropConnectionException();
                     HttpProtocol.writeOutResponse(clientSocket, session, keepConnectionAlive, httpResponse);
+
+                    if (keepConnectionAlive && session.hasBody()) {
+                        InputStream bodyStream = session.getRequestBodyStream();
+
+                        while (bodyStream.available() != -1) {
+                            bodyStream.skip(Long.MAX_VALUE); // Skip as much as possible.
+                        }
+                    }
 
                     return keepConnectionAlive;
                 }
