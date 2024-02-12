@@ -41,6 +41,7 @@ import co.casterlabs.rhs.server.HttpServerBuilder;
 import co.casterlabs.rhs.session.WebsocketListener;
 import co.casterlabs.rhs.util.DropConnectionException;
 import lombok.Getter;
+import lombok.NonNull;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
 @Getter
@@ -391,6 +392,7 @@ class RakuraiHttpServer implements HttpServer {
         try {
             if (this.config.getSsl() == null) {
                 this.serverSocket = new ServerSocket();
+                this.finishStartup();
             } else {
                 SSLContext sslContext = SSLContext.getInstance("TLS");
 
@@ -406,87 +408,97 @@ class RakuraiHttpServer implements HttpServer {
                 tmf.init(keyStore);
 
                 sslContext.init(keyManager.getKeyManagers(), tmf.getTrustManagers(), null);
-
-                SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
-                SSLServerSocket socket = (SSLServerSocket) factory.createServerSocket();
-
-                List<String> cipherSuitesToUse;
-
-                if (this.config.getSsl().getEnabledCipherSuites() == null) {
-                    cipherSuitesToUse = Arrays.asList(factory.getSupportedCipherSuites());
-                } else {
-                    List<String> enabledCipherSuites = this.config.getSsl().getEnabledCipherSuites();
-
-                    // Go through the list and make sure that the JVM supports the suite.
-                    List<String> supported = new LinkedList<>();
-                    for (String suite : factory.getSupportedCipherSuites()) {
-                        if (enabledCipherSuites.contains(suite)) {
-                            supported.add(suite);
-                        } else {
-                            this.logger.debug("Disabled Cipher Suite: %s.", suite);
-                        }
-                    }
-
-                    for (String suite : enabledCipherSuites) {
-                        if (!supported.contains(suite)) {
-                            this.logger.warn("Unsupported Cipher Suite: %s.", suite);
-                        }
-                    }
-
-                    cipherSuitesToUse = supported;
-                }
-
-                // If the certificate doesn't support EC algs, then we disable them.
-                {
-                    boolean ECsupported = false;
-
-                    for (String alias : Collections.list(keyStore.aliases())) {
-                        Certificate certificate = keyStore.getCertificate(alias);
-                        if (certificate instanceof X509Certificate) {
-                            X509Certificate x509Certificate = (X509Certificate) certificate;
-                            String publicKeyAlgorithm = x509Certificate.getPublicKey().getAlgorithm();
-                            if (publicKeyAlgorithm.equals("EC")) {
-                                ECsupported = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!ECsupported) {
-                        Iterator<String> it = cipherSuitesToUse.iterator();
-                        boolean warnedECunsupported = false;
-
-                        while (it.hasNext()) {
-                            String cipherSuite = it.next();
-                            if (cipherSuite.contains("_ECDHE_") || cipherSuite.contains("_ECDH_")) {
-                                it.remove();
-
-                                if (!warnedECunsupported) {
-                                    warnedECunsupported = true;
-                                    this.logger.warn("Elliptic-Curve Cipher Suites are not supported as your certificate does not use the EC public key algorithm.");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                this.logger.info("Using the following Cipher Suites: %s.", cipherSuitesToUse);
-                socket.setEnabledCipherSuites(cipherSuitesToUse.toArray(new String[0]));
-
-                socket.setEnabledProtocols(this.config.getSsl().convertTLS());
-                socket.setUseClientMode(false);
-                socket.setWantClientAuth(false);
-                socket.setNeedClientAuth(false);
-
-                this.serverSocket = socket;
+                this.start(sslContext, keyStore); // Calls finishStartup()
             }
-
-            this.serverSocket.setReuseAddress(true);
-            this.serverSocket.bind(new InetSocketAddress(this.config.getHostname(), this.config.getPort()));
         } catch (Exception e) {
             this.serverSocket = null;
             throw new IOException("Unable to start server", e);
         }
+    }
+
+    @Override
+    public void start(@NonNull SSLContext sslContext, @NonNull KeyStore keyStore) throws IOException {
+        if (this.isAlive()) return;
+
+        try {
+            SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
+            SSLServerSocket socket = (SSLServerSocket) factory.createServerSocket();
+
+            List<String> cipherSuitesToUse;
+            if (this.config.getSsl().getEnabledCipherSuites() == null) {
+                cipherSuitesToUse = Arrays.asList(factory.getSupportedCipherSuites());
+            } else {
+                List<String> enabledCipherSuites = this.config.getSsl().getEnabledCipherSuites();
+
+                // Go through the list and make sure that the JVM supports the suite.
+                cipherSuitesToUse = new LinkedList<>();
+                for (String suite : factory.getSupportedCipherSuites()) {
+                    if (enabledCipherSuites.contains(suite)) {
+                        cipherSuitesToUse.add(suite);
+                    } else {
+                        this.logger.debug("Disabled Cipher Suite: %s.", suite);
+                    }
+                }
+
+                for (String suite : enabledCipherSuites) {
+                    if (!cipherSuitesToUse.contains(suite)) {
+                        this.logger.warn("Unsupported Cipher Suite: %s.", suite);
+                    }
+                }
+            }
+
+            // If the certificate doesn't support EC algs, then we disable them.
+            {
+                boolean ECsupported = false;
+
+                for (String alias : Collections.list(keyStore.aliases())) {
+                    Certificate certificate = keyStore.getCertificate(alias);
+                    if (certificate instanceof X509Certificate) {
+                        X509Certificate x509Certificate = (X509Certificate) certificate;
+                        String publicKeyAlgorithm = x509Certificate.getPublicKey().getAlgorithm();
+                        if (publicKeyAlgorithm.equals("EC")) {
+                            ECsupported = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!ECsupported) {
+                    Iterator<String> it = cipherSuitesToUse.iterator();
+                    boolean warnedECunsupported = false;
+
+                    while (it.hasNext()) {
+                        String cipherSuite = it.next();
+                        if (cipherSuite.contains("_ECDH")) {
+                            it.remove();
+
+                            if (!warnedECunsupported) {
+                                warnedECunsupported = true;
+                                this.logger.warn("Elliptic-Curve Cipher Suites are not supported as your certificate does not use the EC public key algorithm.");
+                            }
+                        }
+                    }
+                }
+            }
+
+            this.logger.info("Using the following Cipher Suites: %s.", cipherSuitesToUse);
+            socket.setEnabledCipherSuites(cipherSuitesToUse.toArray(new String[0]));
+            socket.setEnabledProtocols(this.config.getSsl().convertTLS());
+            socket.setUseClientMode(false);
+            socket.setWantClientAuth(false);
+            socket.setNeedClientAuth(false);
+
+            this.serverSocket = socket;
+            this.finishStartup();
+        } catch (Exception e) {
+            this.serverSocket = null;
+            throw new IOException("Unable to start server", e);
+        }
+    }
+
+    private void finishStartup() throws IOException {
+        this.serverSocket.setReuseAddress(true);
+        this.serverSocket.bind(new InetSocketAddress(this.config.getHostname(), this.config.getPort()));
 
         Thread acceptThread = new Thread(() -> {
             while (!this.serverSocket.isClosed()) {
