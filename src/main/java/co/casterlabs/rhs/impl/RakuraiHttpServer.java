@@ -2,7 +2,6 @@ package co.casterlabs.rhs.impl;
 
 import java.io.BufferedInputStream;
 import java.io.Closeable;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -10,13 +9,9 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Iterator;
@@ -25,12 +20,10 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedKeyManager;
 
 import co.casterlabs.rhs.protocol.HttpMethod;
 import co.casterlabs.rhs.protocol.HttpVersion;
@@ -41,7 +34,6 @@ import co.casterlabs.rhs.server.HttpServerBuilder;
 import co.casterlabs.rhs.session.WebsocketListener;
 import co.casterlabs.rhs.util.DropConnectionException;
 import lombok.Getter;
-import lombok.NonNull;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
 @Getter
@@ -392,128 +384,73 @@ class RakuraiHttpServer implements HttpServer {
         try {
             if (this.config.getSsl() == null) {
                 this.serverSocket = new ServerSocket();
-                this.finishStartup();
             } else {
-                SSLContext sslContext = SSLContext.getInstance("TLS");
+                SSLServerSocketFactory factory = this.config.getSsl().getSslServerSocketFactory();
 
-                KeyStore keyStore = KeyStore.getInstance("JKS");
-                try (FileInputStream fis = new FileInputStream(this.config.getSsl().getKeystoreLocation())) {
-                    keyStore.load(fis, this.config.getSsl().getKeystorePassword());
-                }
+                // If the certificate doesn't support EC algs, then we need to disable them.
+                List<String> cipherSuitesToUse = new ArrayList<>(this.config.getSsl().getCiphers());
+                {
+                    X509ExtendedKeyManager keyManager = this.config.getSsl().getKeyManager().get();
 
-                KeyManagerFactory keyManager = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                keyManager.init(keyStore, this.config.getSsl().getKeystorePassword());
-
-                TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-                tmf.init(keyStore);
-
-                sslContext.init(keyManager.getKeyManagers(), tmf.getTrustManagers(), null);
-                this.start(sslContext, keyStore); // Calls finishStartup()
-            }
-        } catch (Exception e) {
-            this.serverSocket = null;
-            throw new IOException("Unable to start server", e);
-        }
-    }
-
-    @Override
-    public void start(@NonNull SSLContext sslContext, @NonNull KeyStore keyStore) throws IOException {
-        if (this.isAlive()) return;
-
-        try {
-            SSLServerSocketFactory factory = sslContext.getServerSocketFactory();
-            SSLServerSocket socket = (SSLServerSocket) factory.createServerSocket();
-
-            List<String> cipherSuitesToUse;
-            if (this.config.getSsl().getEnabledCipherSuites() == null) {
-                cipherSuitesToUse = Arrays.asList(factory.getSupportedCipherSuites());
-            } else {
-                List<String> enabledCipherSuites = this.config.getSsl().getEnabledCipherSuites();
-
-                // Go through the list and make sure that the JVM supports the suite.
-                cipherSuitesToUse = new LinkedList<>();
-                for (String suite : factory.getSupportedCipherSuites()) {
-                    if (enabledCipherSuites.contains(suite)) {
-                        cipherSuitesToUse.add(suite);
-                    } else {
-                        this.logger.debug("Disabled Cipher Suite: %s.", suite);
-                    }
-                }
-
-                for (String suite : enabledCipherSuites) {
-                    if (!cipherSuitesToUse.contains(suite)) {
-                        this.logger.warn("Unsupported Cipher Suite: %s.", suite);
-                    }
-                }
-            }
-
-            // If the certificate doesn't support EC algs, then we disable them.
-            {
-                boolean ECsupported = false;
-
-                for (String alias : Collections.list(keyStore.aliases())) {
-                    Certificate certificate = keyStore.getCertificate(alias);
-                    if (certificate instanceof X509Certificate) {
-                        X509Certificate x509Certificate = (X509Certificate) certificate;
-                        String publicKeyAlgorithm = x509Certificate.getPublicKey().getAlgorithm();
+                    boolean ECsupported = false;
+                    for (String alias : keyManager.getClientAliases("RSA", null)) {
+                        String publicKeyAlgorithm = keyManager.getPrivateKey(alias).getAlgorithm();
                         if (publicKeyAlgorithm.equals("EC")) {
                             ECsupported = true;
                             break;
                         }
                     }
-                }
 
-                if (!ECsupported) {
-                    Iterator<String> it = cipherSuitesToUse.iterator();
-                    boolean warnedECunsupported = false;
+                    if (!ECsupported) {
+                        Iterator<String> it = cipherSuitesToUse.iterator();
+                        boolean warnedECunsupported = false;
 
-                    while (it.hasNext()) {
-                        String cipherSuite = it.next();
-                        if (cipherSuite.contains("_ECDH")) {
-                            it.remove();
+                        while (it.hasNext()) {
+                            String cipherSuite = it.next();
+                            if (cipherSuite.contains("_ECDH")) {
+                                it.remove();
 
-                            if (!warnedECunsupported) {
-                                warnedECunsupported = true;
-                                this.logger.warn("Elliptic-Curve Cipher Suites are not supported as your certificate does not use the EC public key algorithm.");
+                                if (!warnedECunsupported) {
+                                    warnedECunsupported = true;
+                                    this.logger.warn("Elliptic-Curve Cipher Suites are not supported as your certificate does not use the EC public key algorithm.");
+                                }
                             }
                         }
                     }
                 }
+
+                this.logger.info("Using the following Cipher Suites: %s.", cipherSuitesToUse);
+
+                SSLServerSocket socket = (SSLServerSocket) factory.createServerSocket();
+                socket.setEnabledCipherSuites(cipherSuitesToUse.toArray(new String[0]));
+                socket.setUseClientMode(false);
+                socket.setWantClientAuth(false);
+                socket.setNeedClientAuth(false);
+
+                this.serverSocket = factory.createServerSocket();
             }
 
-            this.logger.info("Using the following Cipher Suites: %s.", cipherSuitesToUse);
-            socket.setEnabledCipherSuites(cipherSuitesToUse.toArray(new String[0]));
-            socket.setEnabledProtocols(this.config.getSsl().convertTLS());
-            socket.setUseClientMode(false);
-            socket.setWantClientAuth(false);
-            socket.setNeedClientAuth(false);
+            this.serverSocket.setReuseAddress(true);
+            this.serverSocket.bind(new InetSocketAddress(this.config.getHostname(), this.config.getPort()));
 
-            this.serverSocket = socket;
-            this.finishStartup();
+            Thread acceptThread = new Thread(() -> {
+                while (!this.serverSocket.isClosed()) {
+                    this.doRead();
+                }
+
+                try {
+                    this.stop();
+                } catch (IOException e) {
+                    this.logger.severe("An error occurred whilst tearing down server:\n%s", e);
+                }
+            });
+            acceptThread.setName("RakuraiHttpServer - " + this.getPort());
+            acceptThread.setDaemon(false);
+            acceptThread.start();
         } catch (Exception e) {
             this.serverSocket = null;
             throw new IOException("Unable to start server", e);
         }
-    }
-
-    private void finishStartup() throws IOException {
-        this.serverSocket.setReuseAddress(true);
-        this.serverSocket.bind(new InetSocketAddress(this.config.getHostname(), this.config.getPort()));
-
-        Thread acceptThread = new Thread(() -> {
-            while (!this.serverSocket.isClosed()) {
-                this.doRead();
-            }
-
-            try {
-                this.stop();
-            } catch (IOException e) {
-                this.logger.severe("An error occurred whilst tearing down server:\n%s", e);
-            }
-        });
-        acceptThread.setName("RakuraiHttpServer - " + this.getPort());
-        acceptThread.setDaemon(false);
-        acceptThread.start();
     }
 
     @Override

@@ -1,5 +1,8 @@
 package co.casterlabs.rhs.session;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.NonNull;
 
 public enum TLSVersion {
@@ -10,13 +13,9 @@ public enum TLSVersion {
 
     UNKNOWN; // Never used, hopefully.
 
-    public String getRuntimeName() {
-        return this.name().replace('_', '.');
-    }
-
     @Override
     public String toString() {
-        return this.getRuntimeName();
+        return this.name().replace('_', '.');
     }
 
     public static TLSVersion parse(@NonNull String runtime) {
@@ -25,6 +24,15 @@ public enum TLSVersion {
         } catch (IllegalArgumentException e) {
             return UNKNOWN;
         }
+    }
+
+    public static String[] toRuntimeNames(TLSVersion... versions) {
+        List<String> list = new ArrayList<>(versions.length);
+        for (TLSVersion v : versions) {
+            if (v == UNKNOWN) continue;
+            list.add(v.toString());
+        }
+        return list.toArray(new String[0]);
     }
 
 }
