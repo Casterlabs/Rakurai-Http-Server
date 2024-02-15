@@ -32,7 +32,7 @@ public class HttpServerBuilder {
     private @With boolean behindProxy;
 
     public HttpServerBuilder() {
-        this("localhost", 80, null, false);
+        this("::", 80, null, false);
     }
 
     public HttpServer build(@NonNull HttpListener listener) {
