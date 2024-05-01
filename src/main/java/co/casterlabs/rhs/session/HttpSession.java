@@ -2,8 +2,11 @@ package co.casterlabs.rhs.session;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -76,14 +79,23 @@ public abstract class HttpSession {
 
     // Request body
     public final @Nullable String getBodyMimeType() {
-        return this.getHeader("Content-Type");
+        return stripDirectives(this.getHeader("Content-Type"));
+    }
+
+    public final Charset getBodyCharset() {
+        Map<String, String> directives = parseDirectives(this.getHeader("Content-Type"));
+
+        String charset = directives.get("charset");
+        if (charset == null) return StandardCharsets.UTF_8;
+
+        return Charset.forName(charset.replace('_', '-'));
     }
 
     public abstract boolean hasBody();
 
     public final @Nullable String getRequestBody() throws IOException {
         if (this.hasBody()) {
-            return new String(this.getRequestBodyBytes(), StandardCharsets.UTF_8);
+            return new String(this.getRequestBodyBytes(), this.getBodyCharset());
         } else {
             return null;
         }
@@ -96,7 +108,7 @@ public abstract class HttpSession {
             }
 
             if ("application/json".equals(this.getBodyMimeType())) {
-                String body = new String(this.getRequestBodyBytes(), StandardCharsets.UTF_8);
+                String body = new String(this.getRequestBodyBytes(), this.getBodyCharset());
 
                 switch (body.charAt(0)) {
                     case '{': {
@@ -228,6 +240,31 @@ public abstract class HttpSession {
             .append("\n    hops=").append(this.getRequestHops())
             .append("\n)")
             .toString();
+    }
+
+    public static @Nullable String stripDirectives(@Nullable String str) {
+        if (str == null) return null;
+        if (str.indexOf(';') == -1) return str;
+
+        return str.substring(0, str.indexOf(';'));
+    }
+
+    public static Map<String, String> parseDirectives(@Nullable String str) {
+        if (str == null) return Collections.emptyMap();
+        if (str.indexOf(';') == -1) return Collections.emptyMap();
+
+        str = str.substring(str.indexOf(';') + 1).trim();
+
+        Map<String, String> directives = new HashMap<>();
+        for (String directive : str.split(" ")) {
+            String[] split = directive.split("=");
+            if (split.length == 1) {
+                directives.put(split[0], "");
+            } else {
+                directives.put(split[0], split[1]);
+            }
+        }
+        return directives;
     }
 
 }
