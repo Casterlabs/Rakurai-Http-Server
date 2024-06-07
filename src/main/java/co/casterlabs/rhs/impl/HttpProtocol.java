@@ -92,7 +92,10 @@ abstract class HttpProtocol {
                 // If there's a Content-Length header then there's a body.
                 String contentLength = headers.getSingle("Content-Length");
                 if (contentLength != null) {
-                    bodyInput = new LimitedInputStream(in, Long.parseLong(contentLength));
+                    long lengthL = Long.parseLong(contentLength);
+                    if (lengthL == 0) break;
+
+                    bodyInput = new LimitedInputStream(in, lengthL);
                     sessionLogger.debug("Detected fixed-length body.");
                 }
                 break;
