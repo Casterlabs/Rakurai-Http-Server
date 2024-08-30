@@ -496,7 +496,6 @@ class RakuraiHttpServer implements HttpServer {
     static <A, R> R executeBlocking(Function<A, R> toExecute, A arg) {
         try {
             return blockingExecutor.submit(() -> {
-                System.out.println(1111);
                 return toExecute.apply(arg);
             }).get();
         } catch (ExecutionException e) {
