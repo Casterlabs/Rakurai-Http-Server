@@ -17,8 +17,13 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
@@ -34,6 +39,7 @@ import co.casterlabs.rhs.server.HttpServerBuilder;
 import co.casterlabs.rhs.session.WebsocketListener;
 import co.casterlabs.rhs.util.DropConnectionException;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
 @Getter
@@ -41,12 +47,20 @@ class RakuraiHttpServer implements HttpServer {
     private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Bad Request\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
     private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
 
+    private static final ExecutorService blockingExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+            return Thread.ofPlatform()
+                .name("RakuraiHttpServer - Blocking Thread", 0)
+                .unstarted(() -> {
+                });
+        }
+    });
+
     private final FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
 
     private final HttpListener listener;
     private final HttpServerBuilder config;
-
-    private final ExecutorService executor = Executors.newCachedThreadPool(); // TODO maybe a better one?
 
     private List<Socket> connectedClients = Collections.synchronizedList(new LinkedList<>());
     private ServerSocket serverSocket;
@@ -66,48 +80,50 @@ class RakuraiHttpServer implements HttpServer {
             String remoteAddress = formatAddress(clientSocket);
             this.logger.debug("New connection from %s", remoteAddress);
 
-            this.executor.execute(() -> {
-                FastLogger sessionLogger = this.logger.createChild("Connection: " + remoteAddress);
-                sessionLogger.debug("Handling request...");
-
-                try {
-                    clientSocket.setTcpNoDelay(true);
-                    sessionLogger.trace("Set TCP_NODELAY.");
-
-                    BufferedInputStream in = new BufferedInputStream(clientSocket.getInputStream());
-
-                    while (true) {
-                        clientSocket.setSoTimeout(HttpProtocol.HTTP_PERSISTENT_TIMEOUT * 1000); // 1m timeout for regular requests.
-                        sessionLogger.trace("Set SO_TIMEOUT to %dms.", HttpProtocol.HTTP_PERSISTENT_TIMEOUT * 1000);
-
-                        boolean acceptAnotherRequest = this.handle(in, clientSocket, sessionLogger);
-                        if (acceptAnotherRequest) {
-                            // We're keeping the connection, let the while{} block do it's thing.
-                            sessionLogger.debug("Keeping connection alive for subsequent requests.");
-                        } else {
-                            // Break out of this torment.
-                            break;
-                        }
-                    }
-                } catch (DropConnectionException ignored) {
-                    sessionLogger.debug("Dropping connection.");
-                } catch (Throwable e) {
-                    if (!shouldIgnoreThrowable(e)) {
-                        sessionLogger.fatal("An error occurred whilst handling request:\n%s", e);
-                    }
-                } finally {
-                    Thread.interrupted(); // Clear interrupt status.
+            Thread.ofVirtual()
+                .name("RakuraiHttpServer - Read Thread " + remoteAddress, 0)
+                .start(() -> {
+                    FastLogger sessionLogger = this.logger.createChild("Connection: " + remoteAddress);
+                    sessionLogger.debug("Handling request...");
 
                     try {
-                        clientSocket.close();
-                    } catch (IOException e) {
-                        sessionLogger.severe("An error occurred whilst closing the socket:\n%s", e);
-                    }
+                        clientSocket.setTcpNoDelay(true);
+                        sessionLogger.trace("Set TCP_NODELAY.");
 
-                    this.connectedClients.remove(clientSocket);
-                    this.logger.debug("Closed connection from %s", remoteAddress);
-                }
-            });
+                        BufferedInputStream in = new BufferedInputStream(clientSocket.getInputStream());
+
+                        while (true) {
+                            clientSocket.setSoTimeout(HttpProtocol.HTTP_PERSISTENT_TIMEOUT * 1000); // 1m timeout for regular requests.
+                            sessionLogger.trace("Set SO_TIMEOUT to %dms.", HttpProtocol.HTTP_PERSISTENT_TIMEOUT * 1000);
+
+                            boolean acceptAnotherRequest = this.handle(in, clientSocket, sessionLogger);
+                            if (acceptAnotherRequest) {
+                                // We're keeping the connection, let the while{} block do it's thing.
+                                sessionLogger.debug("Keeping connection alive for subsequent requests.");
+                            } else {
+                                // Break out of this torment.
+                                break;
+                            }
+                        }
+                    } catch (DropConnectionException ignored) {
+                        sessionLogger.debug("Dropping connection.");
+                    } catch (Throwable e) {
+                        if (!shouldIgnoreThrowable(e)) {
+                            sessionLogger.fatal("An error occurred whilst handling request:\n%s", e);
+                        }
+                    } finally {
+                        Thread.interrupted(); // Clear interrupt status.
+
+                        try {
+                            clientSocket.close();
+                        } catch (IOException e) {
+                            sessionLogger.severe("An error occurred whilst closing the socket:\n%s", e);
+                        }
+
+                        this.connectedClients.remove(clientSocket);
+                        this.logger.debug("Closed connection from %s", remoteAddress);
+                    }
+                });
         } catch (Throwable t) {
             this.logger.severe("An error occurred whilst accepting a new connection:\n%s", t);
         }
@@ -196,7 +212,7 @@ class RakuraiHttpServer implements HttpServer {
                     // Note that response will always be null at this location IF session isn't.
                     if (session != null) {
                         sessionLogger.trace("Serving session...");
-                        httpResponse = this.listener.serveHttpSession(session);
+                        httpResponse = executeBlocking(this.listener::serveHttpSession, session);
                     }
 
                     sessionLogger.trace("Served.");
@@ -219,7 +235,7 @@ class RakuraiHttpServer implements HttpServer {
                     sessionLogger.trace("Handling websocket request...");
 
                     if (session != null) {
-                        websocketListener = this.listener.serveWebsocketSession(session);
+                        websocketListener = executeBlocking(this.listener::serveWebsocketSession, session);
                     }
 
                     if (websocketListener == null) throw new DropConnectionException();
@@ -292,7 +308,7 @@ class RakuraiHttpServer implements HttpServer {
                     sessionLogger.trace("WebSocket upgrade complete, handling frames.");
 
                     websocket = new WebsocketImpl(session, out, clientSocket);
-                    websocketListener.onOpen(websocket);
+                    executeBlocking(websocketListener::onOpen, websocket);
 
                     // Ping/pong mechanism.
                     clientSocket.setSoTimeout((int) (WebsocketProtocol.READ_TIMEOUT * 4)); // Timeouts should work differently for WS.
@@ -300,16 +316,21 @@ class RakuraiHttpServer implements HttpServer {
 
                     final WebsocketImpl $websocket_pointer = websocket;
 
-                    this.executor.submit(() -> {
-                        try {
-                            while (!clientSocket.isClosed()) {
-                                WebsocketProtocol.doPing($websocket_pointer);
-                                Thread.sleep(WebsocketProtocol.READ_TIMEOUT / 2);
+                    Thread readThread = Thread.currentThread();
+
+                    Thread.ofVirtual()
+                        .name("RakuraiHttpServer - Websocket Ping Thread", 0)
+                        .start(() -> {
+                            try {
+                                while (!clientSocket.isClosed()) {
+                                    WebsocketProtocol.doPing($websocket_pointer);
+                                    Thread.sleep(WebsocketProtocol.READ_TIMEOUT / 2);
+                                }
+                            } catch (Exception ignored) {
+                                safeClose(clientSocket); // Try to tell the read thread that the connection is ded.
+                                readThread.interrupt();
                             }
-                        } catch (Exception ignored) {
-                            RakuraiHttpServer.safeClose(clientSocket); // Try to tell the read thread that the connection is ded.
-                        }
-                    });
+                        });
 
                     sessionLogger.trace("Handling WS request...");
                     WebsocketProtocol.handleWebsocketRequest(clientSocket, session, websocket, websocketListener);
@@ -331,11 +352,13 @@ class RakuraiHttpServer implements HttpServer {
 
             if (websocketListener != null) {
                 try {
-                    websocketListener.onClose(websocket);
+                    RakuraiHttpServer.executeBlocking(websocketListener::onClose, websocket);
                 } catch (Exception e) {
                     sessionLogger.severe("An error occurred whilst response listener:\n%s", e);
                 }
             }
+
+            Thread.interrupted(); // Clear.
         }
     }
 
@@ -479,7 +502,60 @@ class RakuraiHttpServer implements HttpServer {
             this.serverSocket.getLocalPort() : this.config.getPort();
     }
 
-    public static void safeClose(Closeable c) {
+    @SneakyThrows
+    static <A, R> R executeBlocking(Function<A, R> toExecute, A arg) {
+        CompletableFuture<R> future = new CompletableFuture<>();
+        blockingExecutor.execute(() -> {
+            try {
+                future.complete(toExecute.apply(arg));
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw e.getCause();
+        }
+    }
+
+    @SneakyThrows
+    static <A> void executeBlocking(Consumer<A> toExecute, A arg) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        blockingExecutor.execute(() -> {
+            try {
+                toExecute.accept(arg);
+                future.complete(null);
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        try {
+            future.get();
+        } catch (ExecutionException e) {
+            throw e.getCause();
+        }
+    }
+
+    @SneakyThrows
+    static void executeBlocking(Runnable toExecute) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        blockingExecutor.execute(() -> {
+            try {
+                toExecute.run();
+                future.complete(null);
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        try {
+            future.get();
+        } catch (ExecutionException e) {
+            throw e.getCause();
+        }
+    }
+
+    static void safeClose(Closeable c) {
         try {
             c.close();
         } catch (Exception ignored) {}

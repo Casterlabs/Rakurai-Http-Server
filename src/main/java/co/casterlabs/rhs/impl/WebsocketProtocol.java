@@ -148,13 +148,12 @@ class WebsocketProtocol {
 
             // Parse the op code and do behavior tingz.
             switch (op) {
-
                 case 0x1: { // Text
                     sessionLogger.trace("Got frame: TEXT.");
                     try {
                         String text = new String(payload, StandardCharsets.UTF_8);
                         sessionLogger.debug("Text frame: %s", text);
-                        listener.onText(websocket, text);
+                        RakuraiHttpServer.executeBlocking(() -> listener.onText(websocket, text));
                     } catch (Throwable t) {
                         sessionLogger.severe("Listener produced exception:\n%s", t);
                     }
@@ -165,7 +164,8 @@ class WebsocketProtocol {
                     try {
                         sessionLogger.trace("Got frame: BINARY.");
                         sessionLogger.debug("Binary frame: len=%d", payload.length);
-                        listener.onBinary(websocket, payload);
+                        byte[] $payload = payload;
+                        RakuraiHttpServer.executeBlocking(() -> listener.onBinary(websocket, $payload));
                     } catch (Throwable t) {
                         sessionLogger.severe("Listener produced exception:\n%s", t);
                     }
@@ -191,7 +191,6 @@ class WebsocketProtocol {
 
                 default: // Reserved
                     continue;
-
             }
         }
     }
