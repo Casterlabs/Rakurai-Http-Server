@@ -17,11 +17,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -47,15 +45,7 @@ class RakuraiHttpServer implements HttpServer {
     private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Bad Request\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
     private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(HttpProtocol.HEADER_CHARSET);
 
-    private static final ExecutorService blockingExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable r) {
-            return Thread.ofPlatform()
-                .name("RakuraiHttpServer - Blocking Thread", 0)
-                .unstarted(() -> {
-                });
-        }
-    });
+    private static final ExecutorService blockingExecutor = Executors.newCachedThreadPool();
 
     private final FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
 
@@ -504,55 +494,29 @@ class RakuraiHttpServer implements HttpServer {
 
     @SneakyThrows
     static <A, R> R executeBlocking(Function<A, R> toExecute, A arg) {
-        CompletableFuture<R> future = new CompletableFuture<>();
-        blockingExecutor.execute(() -> {
-            try {
-                future.complete(toExecute.apply(arg));
-            } catch (Throwable t) {
-                future.completeExceptionally(t);
-            }
-        });
         try {
-            return future.get();
+            return blockingExecutor.submit(() -> {
+                System.out.println(1111);
+                return toExecute.apply(arg);
+            }).get();
         } catch (ExecutionException e) {
             throw e.getCause();
         }
     }
 
-    @SneakyThrows
     static <A> void executeBlocking(Consumer<A> toExecute, A arg) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        blockingExecutor.execute(() -> {
-            try {
-                toExecute.accept(arg);
-                future.complete(null);
-            } catch (Throwable t) {
-                future.completeExceptionally(t);
-            }
-        });
-        try {
-            future.get();
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+        executeBlocking((_unused) -> {
+            toExecute.accept(arg);
+            return null;
+        }, arg);
     }
 
     @SneakyThrows
     static void executeBlocking(Runnable toExecute) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        blockingExecutor.execute(() -> {
-            try {
-                toExecute.run();
-                future.complete(null);
-            } catch (Throwable t) {
-                future.completeExceptionally(t);
-            }
-        });
-        try {
-            future.get();
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+        executeBlocking((_unused) -> {
+            toExecute.run();
+            return null;
+        }, null);
     }
 
     static void safeClose(Closeable c) {
