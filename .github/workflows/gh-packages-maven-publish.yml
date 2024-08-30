@@ -1,0 +1,43 @@
+name: GitHub Packages Maven Publish
+
+on:
+    push:
+        branches:
+         - main
+    release:
+        types:
+         - created
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+        - name: Checkout repository
+          uses: actions/checkout@v2
+
+        - name: Set up JDK
+          uses: actions/setup-java@v2
+          with:
+            distribution: 'temurin'
+            java-version: '8'
+
+        - name: Update the current version.
+          run: |
+                # Extract the tag or commit hash from GITHUB_REF
+                if [[ "$GITHUB_REF" =~ refs/tags/.* ]]; then
+                    # Extract the tag from GITHUB_REF
+                    VERSION=$(echo "${GITHUB_REF}" | sed -n 's|refs/tags/\(.*\)|\1|p')
+                else
+                    # Use the short commit hash as the version
+                    VERSION=$(git rev-parse --short HEAD)
+                fi
+
+                mvn versions:set -DnewVersion="$VERSION"
+                echo ""
+                echo "Version has been updated to $VERSION."
+    
+        - name: Build and deploy to GitHub Packages
+          run: mvn --batch-mode deploy -DaltDeploymentRepository="github::default::https://maven.pkg.github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}"
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
