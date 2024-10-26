@@ -207,7 +207,7 @@ public class MimeTypes {
         mimeTypes.put("mime", "www/mime");
         mimeTypes.put("mjf", "audio/x-vnd.audioexplosion.mjuicemediafile");
         mimeTypes.put("mjpg", "video/x-motion-jpeg");
-        mimeTypes.put("mjs", "  text/javascript");
+        mimeTypes.put("mjs", "text/javascript");
         mimeTypes.put("mm", "application/base64");
         mimeTypes.put("mme", "application/base64");
         mimeTypes.put("mod", "audio/mod");
@@ -298,7 +298,7 @@ public class MimeTypes {
         mimeTypes.put("qtif", "image/x-quicktime");
         mimeTypes.put("ra", "audio/x-realaudio");
         mimeTypes.put("ram", "audio/x-pn-realaudio");
-        mimeTypes.put("rar", "  application/vnd.rar");
+        mimeTypes.put("rar", "application/vnd.rar");
         mimeTypes.put("ras", "image/cmu-raster");
         mimeTypes.put("rast", "image/cmu-raster");
         mimeTypes.put("rexx", "text/x-script.rexx");
