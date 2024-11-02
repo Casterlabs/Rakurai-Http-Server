@@ -134,6 +134,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             // Write out a Date header for HTTP/1 requests with a non-100 status code.
             if ((connection.httpVersion.value >= 1) && (response.status.statusCode() >= 200)) {
                 response.header("Date", RHSConnection.getHttpTime());
+                response.header("Server", config.serverHeader());
             }
 
             if (contentEncoding != null) {

@@ -129,6 +129,10 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
             connection.writeString(RHSConnection.getHttpTime());
             connection.writeString("\r\n");
 
+            connection.writeString("Server: ");
+            connection.writeString(config.serverHeader());
+            connection.writeString("\r\n");
+
             // Write the separation line.
             connection.writeString("\r\n");
             connection.logger.trace("WebSocket upgrade complete, ready to process frames.");

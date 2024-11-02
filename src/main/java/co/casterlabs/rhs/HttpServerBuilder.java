@@ -38,6 +38,9 @@ public class HttpServerBuilder {
 
     private @With boolean behindProxy;
 
+    @NonNull
+    private @With String serverHeader;
+
     private @With Map<String, Pair<RHSProtocol<?, ?, ?>, Object>> protocols;
 
     private @With TaskExecutor taskExecutor;
@@ -46,6 +49,7 @@ public class HttpServerBuilder {
         this(
             "::", 80,
             null, false,
+            "Rakurai/latest",
             Collections.emptyMap(),
             (r, u) -> {
                 Thread t = new Thread(r);
