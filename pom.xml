@@ -119,13 +119,13 @@
 		<dependency>
 			<groupId>io.github.hakky54</groupId>
 			<artifactId>sslcontext-kickstart</artifactId>
-			<version>8.3.5</version>
+			<version>8.3.7</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.github.hakky54</groupId>
 			<artifactId>sslcontext-kickstart-for-pem</artifactId>
-			<version>8.3.5</version>
+			<version>8.3.7</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -140,12 +140,6 @@
 			<version>1.8.0-1</version>
 			<scope>compile</scope>
 		</dependency>
-		<!-- <dependency>
-			<groupId>co.casterlabs.Commons</groupId>
-			<artifactId>Functional</artifactId>
-			<version>1.6.0</version>
-			<scope>compile</scope>
-		</dependency> -->
 		<dependency>
 			<groupId>com.github.e3ndr</groupId>
 			<artifactId>FastLoggingFramework</artifactId>
