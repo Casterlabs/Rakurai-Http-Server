@@ -6,8 +6,8 @@ import java.io.OutputStream;
 
 import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
-import co.casterlabs.rhs.protocol.HttpStatus;
-import co.casterlabs.rhs.protocol.HttpVersion;
+import co.casterlabs.rhs.HttpStatus;
+import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;

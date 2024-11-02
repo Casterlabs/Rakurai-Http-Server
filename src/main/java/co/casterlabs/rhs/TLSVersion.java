@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.server;
+package co.casterlabs.rhs;
 
 import java.util.ArrayList;
 import java.util.List;

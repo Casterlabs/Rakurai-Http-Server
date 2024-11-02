@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.server;
+package co.casterlabs.rhs;
 
 import java.io.IOException;
 import java.security.KeyStoreException;

@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.protocol;
+package co.casterlabs.rhs;
 
 import lombok.AllArgsConstructor;
 

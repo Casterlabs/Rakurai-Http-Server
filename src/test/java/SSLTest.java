@@ -9,11 +9,11 @@ import java.security.cert.CertificateException;
 import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
 
-import co.casterlabs.rhs.protocol.HttpStatus.StandardHttpStatus;
+import co.casterlabs.rhs.HttpServer;
+import co.casterlabs.rhs.HttpServerBuilder;
+import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
-import co.casterlabs.rhs.server.HttpServer;
-import co.casterlabs.rhs.server.HttpServerBuilder;
 import nl.altindag.ssl.SSLFactory;
 import nl.altindag.ssl.pem.util.PemUtils;
 

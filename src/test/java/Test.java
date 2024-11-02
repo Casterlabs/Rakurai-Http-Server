@@ -5,11 +5,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
-import co.casterlabs.rhs.protocol.HttpStatus.StandardHttpStatus;
+import co.casterlabs.rhs.HttpServer;
+import co.casterlabs.rhs.HttpServerBuilder;
+import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
-import co.casterlabs.rhs.server.HttpServer;
-import co.casterlabs.rhs.server.HttpServerBuilder;
 
 public class Test {
 

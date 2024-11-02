@@ -3,6 +3,8 @@ package co.casterlabs.rhs.protocol;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 
+import co.casterlabs.rhs.HttpStatus;
+import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.HttpException;
 

@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.protocol;
+package co.casterlabs.rhs;
 
 import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.Nullable;

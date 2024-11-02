@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.server;
+package co.casterlabs.rhs.util;
 
 public class SSLUtil {
 

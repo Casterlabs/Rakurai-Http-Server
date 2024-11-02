@@ -4,11 +4,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
+import co.casterlabs.rhs.HttpServer;
+import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.protocol.websocket.Websocket;
 import co.casterlabs.rhs.protocol.websocket.WebsocketListener;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol;
-import co.casterlabs.rhs.server.HttpServer;
-import co.casterlabs.rhs.server.HttpServerBuilder;
 import lombok.SneakyThrows;
 
 public class WSTest {

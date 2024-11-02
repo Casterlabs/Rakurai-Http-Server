@@ -15,7 +15,9 @@ import java.util.Map.Entry;
 
 import org.jetbrains.annotations.Nullable;
 
-import co.casterlabs.rhs.server.TLSVersion;
+import co.casterlabs.rhs.HttpStatus;
+import co.casterlabs.rhs.HttpVersion;
+import co.casterlabs.rhs.TLSVersion;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.SimpleUri;

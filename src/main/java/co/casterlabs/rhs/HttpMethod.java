@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.protocol;
+package co.casterlabs.rhs;
 
 // Source: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
 public enum HttpMethod {
