@@ -19,6 +19,7 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
     public static final long READ_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
 
     private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
+    private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Upgrade Failed\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
     private static final byte[] WS_VERSION_REJECT = "HTTP/1.1 400 426 Upgrade Required\r\nSec-WebSocket-Version: 13\r\n\r\n".getBytes(RHSConnection.CHARSET);
     private static final byte[] WS_ISE = "HTTP/1.1 400 500 Internal Server Error\r\n\r\n".getBytes(RHSConnection.CHARSET);
@@ -30,6 +31,12 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
     @Override
     public WebsocketSession accept(RHSConnection connection) throws IOException, HttpException, DropConnectionException {
+        if (!connection.method.equalsIgnoreCase("GET")) {
+            connection.logger.trace("Rejecting websocket upgrade, method was %s.", connection.method);
+            connection.output.write(HTTP_1_1_UPGRADE_REJECT);
+            throw new DropConnectionException();
+        }
+
         int wsVersion = Integer.parseInt(connection.headers.getSingleOrDefault("Sec-WebSocket-Version", "-1"));
         switch (wsVersion) {
             // Supported.
