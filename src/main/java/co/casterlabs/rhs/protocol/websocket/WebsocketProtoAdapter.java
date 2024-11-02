@@ -116,7 +116,7 @@ public class WebsocketProtoAdapter extends RHSProtoAdapter<WebsocketSession, Web
 
             switch (session.websocketVersion()) {
                 case 13:
-                    websocket = new Websocket13Impl(session, listener, connection);
+                    websocket = new ImplWebsocket13(session, listener, connection);
                     break;
 
                 default:
