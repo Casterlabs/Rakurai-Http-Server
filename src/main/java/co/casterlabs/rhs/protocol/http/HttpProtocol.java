@@ -146,21 +146,23 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
         connection.writeOutStatus(response.status);
         connection.writeOutHeaders(response.headers);
 
-        OutputStream out = null;
-        try (ResponseContent responseContent = response.content) {
-            if (responseMode == ResponseMode.CHUNKED) {
-                out = new ChunkedOutputStream(connection);
-            } else {
-                out = new NonCloseableOutputStream(connection.output);
-            }
+        if (!connection.method.equalsIgnoreCase("HEAD")) {
+            OutputStream out = null;
+            try (ResponseContent responseContent = response.content) {
+                if (responseMode == ResponseMode.CHUNKED) {
+                    out = new ChunkedOutputStream(connection);
+                } else {
+                    out = new NonCloseableOutputStream(connection.output);
+                }
 
-            // Write out the response, defaulting to non-encoded responses.
-            CompressionUtil.writeWithEncoding(contentEncoding, out, responseContent);
-        } finally {
-            // Chunked output streams have special close implementations that don't actually
-            // close the underlying connection, they just signal that this is the end of the
-            // request.
-            out.close();
+                // Write out the response, defaulting to non-encoded responses.
+                CompressionUtil.writeWithEncoding(contentEncoding, out, responseContent);
+            } finally {
+                // Chunked output streams have special close implementations that don't actually
+                // close the underlying connection, they just signal that this is the end of the
+                // request.
+                out.close();
+            }
         }
 
         return kaRequested && responseMode == ResponseMode.FIXED_LENGTH;
