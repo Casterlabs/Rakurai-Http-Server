@@ -131,8 +131,8 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 response.header("Connection", "close");
             }
 
-            // Write out a Date header for HTTP/1.1 requests with a non-100 status code.
-            if ((connection.httpVersion.value >= 1.1) && (response.status.statusCode() >= 200)) {
+            // Write out a Date header for HTTP/1 requests with a non-100 status code.
+            if ((connection.httpVersion.value >= 1) && (response.status.statusCode() >= 200)) {
                 response.header("Date", RHSConnection.getHttpTime());
             }
 
