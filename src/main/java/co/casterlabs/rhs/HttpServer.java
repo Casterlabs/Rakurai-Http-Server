@@ -137,12 +137,12 @@ public class HttpServer {
                         sessionLogger.debug("Keeping connection alive for subsequent requests.");
                     } else {
                         // Break out of this torment.
-                        break;
+                        return;
                     }
                 } catch (HttpException e) {
                     connection.writeOutStatus(e.status);
                     connection.writeOutHeaders(ZERO_LENGTH_HEADER);
-                    break;
+                    return;
                 }
             }
         } catch (DropConnectionException d) {
