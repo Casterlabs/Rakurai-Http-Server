@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 
 import co.casterlabs.rhs.protocol.RHSConnection;
@@ -18,10 +21,14 @@ import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketListener, WebsocketHandler> {
     public static final long READ_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
 
+    // @formatter:off
+    private static final HashSet<String> ACCEPTED_VERSIONS = new HashSet<>(Arrays.asList("13"));
+    // @formatter:on
+
     private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
     private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Upgrade Failed\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
-    private static final byte[] WS_VERSION_REJECT = "HTTP/1.1 400 426 Upgrade Required\r\nSec-WebSocket-Version: 13\r\n\r\n".getBytes(RHSConnection.CHARSET);
+    private static final byte[] WS_VERSION_REJECT = String.format("HTTP/1.1 400 426 Upgrade Required\r\nSec-WebSocket-Version: %s\r\n\r\n", String.join(",", ACCEPTED_VERSIONS)).getBytes(RHSConnection.CHARSET);
     private static final byte[] WS_ISE = "HTTP/1.1 400 500 Internal Server Error\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
     @Override
@@ -37,18 +44,20 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
             throw new DropConnectionException();
         }
 
-        int wsVersion = Integer.parseInt(connection.headers.getSingleOrDefault("Sec-WebSocket-Version", "-1"));
-        switch (wsVersion) {
-            // Supported.
-            case 13:
-                break;
+        int wsVersion = connection.headers.getOrDefault("Sec-WebSocket-Version", Collections.emptyList())
+            .stream()
+            .map((s) -> s.split(","))
+            .flatMap(Arrays::stream)
+            .map(String::trim)
+            .filter((s) -> ACCEPTED_VERSIONS.contains(s.trim()))
+            .mapToInt(Integer::parseInt)
+            .findFirst()
+            .orElse(-1);
 
-            // Not supported.
-            default: {
-                connection.logger.warn("Rejected websocket version: %s", wsVersion);
-                connection.output.write(WS_VERSION_REJECT);
-                throw new DropConnectionException();
-            }
+        if (wsVersion == -1) {
+            connection.logger.warn("Rejected websocket version: %s", wsVersion);
+            connection.output.write(WS_VERSION_REJECT);
+            throw new DropConnectionException();
         }
 
         String wsProtocol = connection.headers.getSingle("Sec-WebSocket-Protocol");
