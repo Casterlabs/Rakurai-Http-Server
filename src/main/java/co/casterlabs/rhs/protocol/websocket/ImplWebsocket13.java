@@ -42,7 +42,7 @@ class ImplWebsocket13 extends Websocket {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         try {
             this.sendFrame(true, WebsocketOpCode.CLOSE, new byte[0]);
         } catch (IOException e) {

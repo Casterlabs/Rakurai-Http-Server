@@ -1,12 +1,13 @@
 package co.casterlabs.rhs.protocol.websocket;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 import org.jetbrains.annotations.Nullable;
 
 import lombok.NonNull;
 
-public abstract class Websocket {
+public abstract class Websocket implements Closeable {
     private Object attachment;
 
     public void setAttachment(Object attachment) {
@@ -41,7 +42,8 @@ public abstract class Websocket {
     /**
      * Closes the connection.
      */
-    public abstract void close() throws IOException;
+    @Override
+    public abstract void close();
 
     /* ---------------- */
     /* Internal Methods */
