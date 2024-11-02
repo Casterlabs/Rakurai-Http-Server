@@ -21,6 +21,7 @@ import co.casterlabs.rakurai.json.element.JsonObject;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.util.DropConnectionException;
+import co.casterlabs.rhs.util.MimeTypes;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
@@ -103,7 +104,7 @@ public class HttpResponse {
     }
 
     /* ---------------- */
-    /* Response (Stream) */
+    /* Creating (Stream) */
     /* ---------------- */
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull InputStream responseStream, long length) {
@@ -115,25 +116,80 @@ public class HttpResponse {
         return response;
     }
 
-    public static HttpResponse newFixedLengthFileResponse(@NonNull HttpStatus status, @NonNull File file) throws FileNotFoundException {
-        FileInputStream fin = new FileInputStream(file);
-
-        return newFixedLengthResponse(status, fin, file.length());
-    }
-
-    public static HttpResponse newFixedLengthFileResponse(@NonNull HttpStatus status, @NonNull File file, long skip, long length) throws FileNotFoundException, IOException {
-        FileInputStream fin = new FileInputStream(file);
-
-        fin.skip(skip);
-
-        return newFixedLengthResponse(status, fin, length);
-    }
-
     public static HttpResponse newChunkedResponse(@NonNull HttpStatus status, @NonNull InputStream responseStream) {
         return new HttpResponse(
             new StreamResponse(responseStream, -1),
             status
         );
+    }
+
+    /* ---------------- */
+    /* Creating (File) */
+    /* ---------------- */
+
+    public static HttpResponse newFixedLengthFileResponse(@NonNull HttpStatus status, @NonNull File file) throws FileNotFoundException {
+        String mime = MimeTypes.getMimeForFile(file);
+        FileInputStream fin = new FileInputStream(file);
+        return newFixedLengthResponse(status, fin, file.length())
+            .mime(mime);
+    }
+
+    public static HttpResponse newFixedLengthFileResponse(@NonNull HttpStatus status, @NonNull File file, long skip, long length) throws FileNotFoundException, IOException {
+        String mime = MimeTypes.getMimeForFile(file);
+        FileInputStream fin = new FileInputStream(file);
+        try {
+            fin.skip(skip);
+        } catch (IOException e) {
+            fin.close();
+            throw e;
+        }
+        return newFixedLengthResponse(status, fin, length)
+            .mime(mime);
+    }
+
+    public static HttpResponse newRangedFileResponse(@NonNull HttpSession session, @NonNull HttpStatus status, @NonNull File file) throws FileNotFoundException, IOException {
+        String etag = Integer.toHexString((file.getName() + file.lastModified() + file.length()).hashCode());
+
+        String range = session.headers().getSingle("Range");
+        long fileLen = file.length();
+        long startFrom = 0;
+        long endAt = -1;
+
+        if (range != null && range.startsWith("bytes=")) {
+            range = range.substring("bytes=".length());
+            int minusLocation = range.indexOf('-');
+            if (minusLocation > 0) {
+                try {
+                    startFrom = Long.parseLong(range.substring(0, minusLocation));
+                    if (range.length() - minusLocation - 1 > 0) {
+                        endAt = Long.parseLong(range.substring(minusLocation + 1));
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        HttpResponse response = null;
+
+        if (range == null) {
+            response = HttpResponse.newFixedLengthFileResponse(StandardHttpStatus.OK, file);
+        } else {
+            if (endAt < 0) endAt = fileLen - 1; // Range requests are 0-indexed, so subtract 1.
+            long dataLen = endAt - startFrom + 1; // Add it back for the content length :D
+
+            if (startFrom < 0 || startFrom >= fileLen || dataLen < 0) {
+                response = HttpResponse.newFixedLengthResponse(StandardHttpStatus.RANGE_NOT_SATISFIABLE)
+                    .header("Content-Range", String.format("bytes 0-0/%d", fileLen));
+            } else {
+                response = HttpResponse.newFixedLengthFileResponse(StandardHttpStatus.PARTIAL_CONTENT, file, startFrom, dataLen)
+                    .header("Content-Range", String.format("bytes %d-%d/%d", startFrom, endAt, fileLen));
+            }
+        }
+
+        response.header("ETag", etag);
+        response.header("Content-Disposition", "filename=\"" + file.getName() + "\"");
+        response.header("Accept-Ranges", "bytes");
+
+        return response;
     }
 
     /* ---------------- */
