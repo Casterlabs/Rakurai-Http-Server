@@ -98,7 +98,7 @@ public class HttpServer {
                 );
                 sessionLogger.debug("Handling request...");
 
-                connection.logger.debug("Version: %s, Request headers: %s", connection.httpVersion, connection.headers);
+                sessionLogger.debug("Version: %s, Request headers: %s", connection.httpVersion, connection.headers);
 
                 String protocolName = "http";
                 switch (connection.httpVersion) {
@@ -188,6 +188,7 @@ public class HttpServer {
             message.contains("socket is closed") ||
             message.contains("read timed out") ||
             message.contains("connection abort") ||
+            message.contains("connection was abort") ||
             message.contains("connection or inbound has closed") ||
             message.contains("connection reset") ||
             message.contains("received fatal alert: internal_error") ||
