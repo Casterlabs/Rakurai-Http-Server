@@ -1,8 +1,8 @@
 package co.casterlabs.rhs.protocol;
 
-import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.time.ZoneOffset;
@@ -33,7 +33,7 @@ public class RHSConnection implements Closeable {
 
     public final FastLogger logger;
 
-    public final BufferedInputStream input;
+    public final InputStream input;
     public final OutputStream output;
     public final String remoteAddress;
     public final int serverPort;
@@ -145,7 +145,7 @@ public class RHSConnection implements Closeable {
 
     public static RHSConnection accept(
         FastLogger logger,
-        BufferedInputStream input,
+        InputStream input,
         OutputStream output,
         String remoteAddress,
         int serverPort,

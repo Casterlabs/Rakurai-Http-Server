@@ -1,8 +1,8 @@
 package co.casterlabs.rhs;
 
-import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -79,7 +79,7 @@ public class HttpServer {
         }
 
         try {
-            BufferedInputStream bufferedInput = new BufferedInputStream(clientSocket.getInputStream());
+            InputStream input = clientSocket.getInputStream();
             OutputStream output = clientSocket.getOutputStream();
 
             clientSocket.setTcpNoDelay(true);
@@ -92,7 +92,7 @@ public class HttpServer {
 
                 RHSConnection connection = RHSConnection.accept(
                     sessionLogger,
-                    bufferedInput, output,
+                    input, output,
                     remoteAddress, port(),
                     tlsVersion
                 );

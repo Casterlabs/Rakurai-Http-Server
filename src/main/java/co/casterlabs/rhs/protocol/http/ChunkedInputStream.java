@@ -39,18 +39,9 @@ class ChunkedInputStream extends InputStream {
                 throw new IOException("Reached end of stream before chunked body was fully read.");
             }
 
-            // Convert the \r character to \n, dealing with the consequences if necessary.
+            // Don't handle the \r character. There'll be a \n next.
             if (readCharacter == '\r') {
-                readCharacter = '\n';
-
-                // Peek at the next byte, if it's a \n then we need to consume it.
-                this.connection.input.mark(1);
-                if (this.connection.input.read() == '\n') {
-                    this.connection.input.reset();
-                    this.connection.input.skip(1);
-                } else {
-                    this.connection.input.reset();
-                }
+                continue;
             }
 
             // You can include "extensions" at the end of chunk sizes. We gotta ignore them

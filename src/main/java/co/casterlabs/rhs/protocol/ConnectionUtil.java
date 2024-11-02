@@ -1,7 +1,7 @@
 package co.casterlabs.rhs.protocol;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
@@ -15,8 +15,9 @@ class ConnectionUtil {
     private static final int MAX_HEADER_LENGTH =  16 /*kb*/ * 1024;
     // @formatter:on
 
-    static byte[] readRequestLine(BufferedInputStream in, int[] $endOfLinePosition) throws IOException, HttpException {
+    static byte[] readRequestLine(InputStream in, int[] $endOfLinePosition) throws IOException, HttpException {
         byte[] buffer = new byte[MAX_METHOD_LENGTH + MAX_URI_LENGTH + MAX_METHOD_LENGTH];
+
         int bufferWritePos = 0;
         while (true) {
             int readCharacter = in.read();
@@ -29,25 +30,16 @@ class ConnectionUtil {
                 }
             }
 
-            // Convert the \r character to \n, dealing with the consequences if necessary.
+            // Swallow \r
             if (readCharacter == '\r') {
-                readCharacter = '\n';
-
-                // Peek at the next byte, if it's a \n then we need to consume it.
-                in.mark(1);
-                if (in.read() == '\n') {
-                    in.reset();
-                    in.skip(1);
-                } else {
-                    in.reset();
-                }
+                continue;
             }
 
             if (readCharacter == '\n') {
                 break; // End of method name, break!
             }
 
-            buffer[bufferWritePos++] = (byte) (readCharacter & 0xff);
+            buffer[bufferWritePos++] = (byte) readCharacter;
         }
 
         if (bufferWritePos == 0) {
@@ -151,7 +143,7 @@ class ConnectionUtil {
         }
     }
 
-    static CaseInsensitiveMultiMap readHeaders(BufferedInputStream in) throws IOException {
+    static CaseInsensitiveMultiMap readHeaders(InputStream in) throws IOException {
         CaseInsensitiveMultiMap.Builder headers = new CaseInsensitiveMultiMap.Builder();
 
         byte[] keyBuffer = new byte[MAX_HEADER_LENGTH];
@@ -160,27 +152,20 @@ class ConnectionUtil {
         byte[] valueBuffer = new byte[MAX_HEADER_LENGTH];
         int valueBufferWritePos = 0;
 
+        int peeked = -1;
         boolean isCurrentLineBlank = true;
         boolean isBuildingHeaderKey = true;
         while (true) {
-            int readCharacter = in.read();
+            int readCharacter = peeked == -1 ? in.read() : peeked;
+            peeked = -1;
 
             if (readCharacter == -1) {
                 throw new IOException("Reached end of stream before headers were fully read.");
             }
 
-            // Convert the \r character to \n, dealing with the consequences if necessary.
+            // Swallow \r
             if (readCharacter == '\r') {
-                readCharacter = '\n';
-
-                // Peek at the next byte, if it's a \n then we need to consume it.
-                in.mark(1);
-                if (in.read() == '\n') {
-                    in.reset();
-                    in.skip(1);
-                } else {
-                    in.reset();
-                }
+                continue;
             }
 
             if (readCharacter == '\n') {
@@ -192,12 +177,11 @@ class ConnectionUtil {
                 // line. Example of what we're looking for:
                 /* X-My-Header: some-value-1,\r\n  */
                 /*              some-value-2\r\n   */
-                in.mark(1);
-                if (in.read() == ' ') {
-                    in.reset();
+                peeked = in.read();
+                if (peeked == ' ') {
+                    peeked = -1;
                     continue; // Keep on readin'
                 }
-                in.reset();
 
                 // Alright, we're done with this header.
                 String headerKey = convertBufferToTrimmedString(keyBuffer, keyBufferWritePos);

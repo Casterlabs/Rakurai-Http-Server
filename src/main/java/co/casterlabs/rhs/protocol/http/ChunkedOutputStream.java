@@ -8,7 +8,10 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 class ChunkedOutputStream extends OutputStream {
-    private final RHSConnection connection;
+    private static final byte[] END = "0\r\n\r\n".getBytes(RHSConnection.CHARSET);
+    private static final byte[] NEWLINE = "\r\n".getBytes(RHSConnection.CHARSET);
+
+    private final OutputStream output;
 
     private boolean alreadyClosed = false;
 
@@ -16,43 +19,27 @@ class ChunkedOutputStream extends OutputStream {
     public void close() throws IOException {
         if (this.alreadyClosed) return;
 
-        this.connection.writeString("0\r\n\r\n");
+        this.output.write(END);
         this.alreadyClosed = true;
         // Don't actually close the OutputStream.
     }
 
     @Override
     public void write(int b) throws IOException {
-        this.connection.output.write('1');
-        this.connection.output.write('\r');
-        this.connection.output.write('\n');
-        this.connection.output.write(b);
-        this.connection.output.write('\r');
-        this.connection.output.write('\n');
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-        if (b.length == 0) return;
-
-        this.connection.writeString(Integer.toHexString(b.length));
-        this.connection.output.write('\r');
-        this.connection.output.write('\n');
-        this.connection.output.write(b);
-        this.connection.output.write('\r');
-        this.connection.output.write('\n');
+        this.output.write('1');
+        this.output.write(NEWLINE);
+        this.output.write(b);
+        this.output.write(NEWLINE);
     }
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
         if (len == 0) return;
 
-        this.connection.writeString(Integer.toHexString(len));
-        this.connection.output.write('\r');
-        this.connection.output.write('\n');
-        this.connection.output.write(b, off, len);
-        this.connection.output.write('\r');
-        this.connection.output.write('\n');
+        this.output.write(Integer.toHexString(len).getBytes(RHSConnection.CHARSET));
+        this.output.write(NEWLINE);
+        this.output.write(b, off, len);
+        this.output.write(NEWLINE);
     }
 
 }

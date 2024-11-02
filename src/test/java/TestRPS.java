@@ -10,16 +10,20 @@ import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
 
-public class Test {
+public class TestRPS {
+    private static final byte[] helloWorld = "Hello World!".getBytes();
 
     public static void main(String[] args) throws IOException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
 //        FastLoggingFramework.setDefaultLevel(LogLevel.ALL);
+
+        // npx loadtest -k http://localhost:8080
+
         HttpServer server = new HttpServerBuilder()
             .withPort(8080)
             .with(
                 new HttpProtocol(), (session) -> HttpResponse.newFixedLengthResponse(
                     StandardHttpStatus.OK,
-                    String.format("Hello %s!", session.remoteNetworkAddress())
+                    helloWorld
                 )
                     .header("Content-Type", "text/plain")
             )

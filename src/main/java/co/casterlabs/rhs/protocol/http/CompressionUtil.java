@@ -81,19 +81,17 @@ class CompressionUtil {
         }
 
         switch (encoding) {
-            case "gzip": {
-                GZIPOutputStream enc = new GZIPOutputStream(out);
-                content.write(enc);
-                enc.finish(); // Do not close.
+            case "gzip":
+                try (GZIPOutputStream enc = new GZIPOutputStream(out)) {
+                    content.write(enc);
+                }
                 break;
-            }
 
-            case "deflate": {
-                DeflaterOutputStream enc = new DeflaterOutputStream(out);
-                content.write(enc);
-                enc.finish(); // Do not close.
+            case "deflate":
+                try (DeflaterOutputStream enc = new DeflaterOutputStream(out)) {
+                    content.write(enc);
+                }
                 break;
-            }
 
             default:
                 content.write(out);
