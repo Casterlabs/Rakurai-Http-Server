@@ -151,9 +151,7 @@ public class HttpServer {
                 sessionLogger.fatal("An error occurred whilst handling request:\n%s", e);
             }
         } finally {
-            Thread.interrupted(); // Tidy up this thread before we give it back :^)
             safeClose(clientSocket);
-
             this.connectedClients.remove(clientSocket);
             this.logger.debug("Closed connection from %s", remoteAddress);
         }
