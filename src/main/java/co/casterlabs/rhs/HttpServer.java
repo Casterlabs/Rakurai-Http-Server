@@ -32,7 +32,7 @@ import lombok.Getter;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
 public class HttpServer {
-    private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Cannot Upgrade\r\n\r\n".getBytes(RHSConnection.CHARSET);
+    private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Unable to Upgrade\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
     private static final CaseInsensitiveMultiMap ZERO_LENGTH_HEADER = new CaseInsensitiveMultiMap.Builder()
         .put("Content-Length", "0")
