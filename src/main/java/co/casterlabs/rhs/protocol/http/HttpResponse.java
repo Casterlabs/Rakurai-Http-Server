@@ -218,8 +218,7 @@ public class HttpResponse {
             StreamUtil.streamTransfer(
                 this.response,
                 out,
-                1400, // Average MTU is 1500,
-                      // 1400 gives us some slack with chunked encoding and packet overhead.
+                8192,
                 this.length
             );
         }
