@@ -127,6 +127,7 @@ public class HttpServer {
                 try {
                     Object session = adapterPair.a().accept(connection);
                     Object response = adapterPair.a().$handle_cast(session, adapterPair.b());
+                    if (response == null) throw new DropConnectionException();
 
                     boolean acceptAnotherRequest = adapterPair.a().$process_cast(session, response, connection);
                     if (acceptAnotherRequest) {
@@ -289,7 +290,7 @@ public class HttpServer {
             this.serverSocket.getLocalPort() : this.config.getPort();
     }
 
-    static void safeClose(Closeable c) {
+    private static void safeClose(Closeable c) {
         try {
             c.close();
         } catch (Exception ignored) {}
