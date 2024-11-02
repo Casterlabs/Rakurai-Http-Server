@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.server;
+package co.casterlabs.rhs.protocol.http;
 
 import java.io.Closeable;
 import java.io.File;
@@ -19,15 +19,12 @@ import co.casterlabs.rakurai.json.element.JsonArray;
 import co.casterlabs.rakurai.json.element.JsonElement;
 import co.casterlabs.rakurai.json.element.JsonObject;
 import co.casterlabs.rhs.protocol.HttpStatus;
-import co.casterlabs.rhs.protocol.StandardHttpStatus;
+import co.casterlabs.rhs.protocol.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.util.DropConnectionException;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.Setter;
 
-@Getter
 public class HttpResponse {
     /**
      * This response is used to signal to the server that we need to drop the
@@ -38,10 +35,9 @@ public class HttpResponse {
     public static final HttpResponse INTERNAL_ERROR = HttpResponse.newFixedLengthResponse(StandardHttpStatus.INTERNAL_ERROR, new byte[0]);
     public static final byte[] EMPTY_BODY = new byte[0];
 
-    private @Getter(AccessLevel.PACKAGE) Map<String, String> headers = new HashMap<>();
-    private @NonNull @Setter HttpStatus status;
-
-    private ResponseContent content;
+    Map<String, String> headers = new HashMap<>();
+    ResponseContent content;
+    HttpStatus status;
 
     public HttpResponse(@NonNull ResponseContent content, @NonNull HttpStatus status) {
         this.content = content;
@@ -52,33 +48,19 @@ public class HttpResponse {
     /* Headers          */
     /* ---------------- */
 
-    public HttpResponse setMimeType(@Nullable String type) {
+    public HttpResponse mime(@Nullable String type) {
         if (type == null) type = "application/octet-stream";
-        return this.putHeader("Content-Type", type);
+        return this.header("Content-Type", type);
     }
 
-    public HttpResponse putHeader(@NonNull String key, @NonNull String value) {
+    public HttpResponse header(@NonNull String key, @NonNull String value) {
         this.headers.put(key, value);
         return this;
     }
 
     public HttpResponse putAllHeaders(@NonNull Map<String, String> headers) {
-        for (Map.Entry<String, String> entry : headers.entrySet()) {
-            this.headers.put(entry.getKey(), entry.getValue());
-        }
+        this.headers.putAll(headers);
         return this;
-    }
-
-    public boolean hasHeader(@NonNull String key) {
-        return this.headers.containsKey(key);
-    }
-
-    public boolean removeHeader(@NonNull String key) {
-        return this.headers.remove(key) != null;
-    }
-
-    public Map<String, String> getAllHeaders() {
-        return this.headers;
     }
 
     /* ---------------- */
@@ -90,7 +72,8 @@ public class HttpResponse {
     }
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull String body) {
-        return newFixedLengthResponse(status, body.getBytes(StandardCharsets.UTF_8));
+        return newFixedLengthResponse(status, body.getBytes(StandardCharsets.UTF_8))
+            .mime("text/plain; charset=utf-8");
     }
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull char[] body) {
@@ -104,7 +87,7 @@ public class HttpResponse {
                 .getBytes(StandardCharsets.UTF_8);
 
             return newFixedLengthResponse(status, body)
-                .setMimeType("application/json");
+                .mime("application/json; charset=utf-8");
         } else {
             throw new IllegalArgumentException("Json must be an Object or Array.");
         }
@@ -179,7 +162,8 @@ public class HttpResponse {
             StreamUtil.streamTransfer(
                 this.response,
                 out,
-                2048,
+                1400, // Average MTU is 1500,
+                      // 1400 gives us some slack with chunked encoding and packet overhead.
                 this.length
             );
         }

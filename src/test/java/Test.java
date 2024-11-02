@@ -1,38 +1,30 @@
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 
-import org.jetbrains.annotations.Nullable;
-
-import co.casterlabs.rhs.protocol.StandardHttpStatus;
-import co.casterlabs.rhs.server.HttpListener;
-import co.casterlabs.rhs.server.HttpResponse;
+import co.casterlabs.rhs.protocol.HttpStatus.StandardHttpStatus;
+import co.casterlabs.rhs.protocol.http.HttpProtoAdapter;
+import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.server.HttpServer;
 import co.casterlabs.rhs.server.HttpServerBuilder;
-import co.casterlabs.rhs.session.HttpSession;
-import co.casterlabs.rhs.session.WebsocketListener;
-import co.casterlabs.rhs.session.WebsocketSession;
-import lombok.NonNull;
 
 public class Test {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
+//        FastLoggingFramework.setDefaultLevel(LogLevel.ALL);
         HttpServer server = new HttpServerBuilder()
-            .withPort(80)
-            .build(new HttpListener() {
-                @Override
-                public @Nullable HttpResponse serveHttpSession(@NonNull HttpSession session) {
-                    String body = String.format("Hello %s!", session.getRemoteIpAddress());
-
-                    return HttpResponse
-                        .newFixedLengthResponse(StandardHttpStatus.OK, body)
-                        .setMimeType("text/plain");
-                }
-
-                @Override
-                public @Nullable WebsocketListener serveWebsocketSession(@NonNull WebsocketSession session) {
-                    // Returning null will drop the connection.
-                    return null;
-                }
-            });
+            .withPort(8080)
+            .with(
+                new HttpProtoAdapter(), (session) -> HttpResponse.newChunkedResponse(
+                    StandardHttpStatus.OK,
+                    new ByteArrayInputStream(String.format("Hello %s!", session.remoteNetworkAddress()).getBytes())
+                )
+                    .header("Content-Type", "text/plain")
+            )
+            .build();
 
         server.start(); // Open up http://127.0.0.1:8080
     }

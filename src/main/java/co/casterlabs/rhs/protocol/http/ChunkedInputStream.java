@@ -1,11 +1,13 @@
-package co.casterlabs.rhs.impl;
+package co.casterlabs.rhs.protocol.http;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-class HttpChunkedInputStream extends InputStream {
+import co.casterlabs.rhs.protocol.RHSConnectionReader;
+
+class ChunkedInputStream extends InputStream {
     private BufferedInputStream in;
     private boolean isEndOfStream = false;
     private long currentChunkSize = 0;
@@ -16,7 +18,7 @@ class HttpChunkedInputStream extends InputStream {
     private int bufferWritePos = 0;
     private int bufferChunkSizePos = -1;
 
-    public HttpChunkedInputStream(BufferedInputStream in) {
+    public ChunkedInputStream(BufferedInputStream in) {
         this.in = in;
     }
 
@@ -84,7 +86,7 @@ class HttpChunkedInputStream extends InputStream {
         // End of stream.
         if (this.currentChunkSize == 0) {
             this.isEndOfStream = true;
-            HttpProtocol.readHeaders(this.in); // Read the footer/trailers.
+            RHSConnectionReader.readHeaders(this.in); // Read the footer/trailers.
         }
     }
 
