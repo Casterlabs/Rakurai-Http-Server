@@ -14,17 +14,18 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.commons.functional.tuples.Pair;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.util.TaskExecutor;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.With;
+import lombok.experimental.Accessors;
 import nl.altindag.ssl.SSLFactory;
 
 @Value
-@Getter(AccessLevel.PACKAGE)
+@Getter
 @AllArgsConstructor
+@Accessors(fluent = true)
 @SuppressWarnings("deprecation")
 public class HttpServerBuilder {
     @NonNull
@@ -39,7 +40,7 @@ public class HttpServerBuilder {
 
     private @With Map<String, Pair<RHSProtocol<?, ?, ?>, Object>> protocols;
 
-    private @With TaskExecutor blockingExecutor;
+    private @With TaskExecutor taskExecutor;
 
     public HttpServerBuilder() {
         this(

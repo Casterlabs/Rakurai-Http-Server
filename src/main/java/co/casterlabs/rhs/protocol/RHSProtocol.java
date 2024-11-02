@@ -2,9 +2,9 @@ package co.casterlabs.rhs.protocol;
 
 import java.io.IOException;
 
+import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
-import co.casterlabs.rhs.util.TaskExecutor;
 
 public abstract class RHSProtocol<S, R, H> {
 
@@ -20,15 +20,15 @@ public abstract class RHSProtocol<S, R, H> {
      * @implSpec If you do plan on reusing the connection, you <b>MUST</b> swallow
      *           the response by the time this method returns.
      */
-    public abstract boolean process(S session, R response, RHSConnection connection, TaskExecutor executor) throws IOException, HttpException, DropConnectionException;
+    public abstract boolean process(S session, R response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException, DropConnectionException;
 
     public abstract R handle(S session, H handler);
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    public final boolean $process_cast(Object session, Object response, RHSConnection connection, TaskExecutor executor) throws IOException, HttpException {
+    public final boolean $process_cast(Object session, Object response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException {
         // This exists because of type erasure
-        return process((S) session, (R) response, connection, executor);
+        return process((S) session, (R) response, connection, config);
     }
 
     @Deprecated

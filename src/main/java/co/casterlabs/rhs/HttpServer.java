@@ -51,7 +51,7 @@ public class HttpServer {
     @Deprecated
     HttpServer(HttpServerBuilder config) {
         this.config = config;
-        this.executor = this.config.getBlockingExecutor();
+        this.executor = this.config.taskExecutor();
     }
 
     private void doAccept() {
@@ -117,7 +117,7 @@ public class HttpServer {
                         break;
                 }
 
-                Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = this.config.getProtocols().get(protocolName);
+                Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = this.config.protocols().get(protocolName);
                 if (protocolPair == null) {
                     connection.output.write(HTTP_1_1_UPGRADE_REJECT);
                     break;
@@ -131,7 +131,7 @@ public class HttpServer {
                     Object response = protocol.$handle_cast(session, handler);
                     if (response == null) throw new DropConnectionException();
 
-                    boolean acceptAnotherRequest = protocol.$process_cast(session, response, connection, this.executor);
+                    boolean acceptAnotherRequest = protocol.$process_cast(session, response, connection, this.config);
                     if (acceptAnotherRequest) {
                         // We're keeping the connection, let the while{} block do it's thing.
                         sessionLogger.debug("Keeping connection alive for subsequent requests.");
@@ -200,15 +200,15 @@ public class HttpServer {
         if (this.isAlive()) return;
 
         try {
-            if (this.config.getSsl() == null) {
+            if (this.config.ssl() == null) {
                 this.serverSocket = new ServerSocket();
             } else {
-                SSLServerSocketFactory factory = this.config.getSsl().getSslServerSocketFactory();
+                SSLServerSocketFactory factory = this.config.ssl().getSslServerSocketFactory();
 
                 // If the certificate doesn't support EC algs, then we need to disable them.
-                List<String> cipherSuitesToUse = new ArrayList<>(this.config.getSsl().getCiphers());
+                List<String> cipherSuitesToUse = new ArrayList<>(this.config.ssl().getCiphers());
                 {
-                    X509ExtendedKeyManager keyManager = this.config.getSsl().getKeyManager().get();
+                    X509ExtendedKeyManager keyManager = this.config.ssl().getKeyManager().get();
 
                     boolean ECsupported = false;
                     for (String alias : keyManager.getClientAliases("RSA", null)) {
@@ -249,14 +249,14 @@ public class HttpServer {
             }
 
             this.serverSocket.setReuseAddress(true);
-            this.serverSocket.bind(new InetSocketAddress(this.config.getHostname(), this.config.getPort()));
+            this.serverSocket.bind(new InetSocketAddress(this.config.hostname(), this.config.port()));
 
             Thread acceptThread = new Thread(() -> {
                 while (!this.serverSocket.isClosed()) {
                     this.doAccept();
                 }
             });
-            acceptThread.setName("RakuraiHttpServer - " + this.config.getHostname() + " - " + this.port());
+            acceptThread.setName("RakuraiHttpServer - " + this.config.hostname() + " - " + this.port());
             acceptThread.setDaemon(false);
             acceptThread.start();
         } catch (Exception e) {
@@ -287,7 +287,7 @@ public class HttpServer {
 
     public int port() {
         return this.isAlive() ? //
-            this.serverSocket.getLocalPort() : this.config.getPort();
+            this.serverSocket.getLocalPort() : this.config.port();
     }
 
     private static void safeClose(Closeable c) {

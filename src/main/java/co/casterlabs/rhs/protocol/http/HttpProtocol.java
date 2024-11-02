@@ -6,6 +6,7 @@ import java.io.OutputStream;
 
 import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
+import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
@@ -14,7 +15,6 @@ import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
-import co.casterlabs.rhs.util.TaskExecutor;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
     static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
@@ -64,7 +64,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
     }
 
     @Override
-    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection, TaskExecutor executor) throws IOException, HttpException {
+    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException {
         boolean kaRequested = false;
 
         switch (connection.httpVersion) {

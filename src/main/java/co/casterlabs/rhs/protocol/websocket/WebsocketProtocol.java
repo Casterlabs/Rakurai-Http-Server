@@ -10,12 +10,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 
+import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
-import co.casterlabs.rhs.util.TaskExecutor;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 
 public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketListener, WebsocketHandler> {
@@ -80,7 +80,7 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
     }
 
     @Override
-    public boolean process(WebsocketSession session, WebsocketListener listener, RHSConnection connection, TaskExecutor executor) throws IOException, HttpException, DropConnectionException {
+    public boolean process(WebsocketSession session, WebsocketListener listener, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException, DropConnectionException {
         Websocket websocket = null;
 
         try {
@@ -145,8 +145,8 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
             final Websocket $websocket_pointer = websocket;
 
-            final Thread readThread = executor.execute($websocket_pointer::process, TaskUrgency.IMMEDIATE);
-            final Thread pingThread = executor.execute(() -> {
+            final Thread readThread = config.taskExecutor().execute($websocket_pointer::process, TaskUrgency.IMMEDIATE);
+            final Thread pingThread = config.taskExecutor().execute(() -> {
                 try {
                     while (true) {
                         $websocket_pointer.ping();
