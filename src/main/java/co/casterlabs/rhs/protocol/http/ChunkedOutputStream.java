@@ -47,7 +47,7 @@ class ChunkedOutputStream extends OutputStream {
     public void write(byte[] b, int off, int len) throws IOException {
         if (len == 0) return;
 
-        this.connection.writeString(Integer.toHexString(b.length));
+        this.connection.writeString(Integer.toHexString(len));
         this.connection.output.write('\r');
         this.connection.output.write('\n');
         this.connection.output.write(b, off, len);
