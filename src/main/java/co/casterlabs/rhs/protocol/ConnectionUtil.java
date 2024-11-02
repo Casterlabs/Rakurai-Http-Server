@@ -192,14 +192,12 @@ class ConnectionUtil {
                 // line. Example of what we're looking for:
                 /* X-My-Header: some-value-1,\r\n  */
                 /*              some-value-2\r\n   */
-                try {
-                    in.mark(1);
-                    if (in.read() == ' ') {
-                        continue; // Keep on readin'
-                    }
-                } finally {
+                in.mark(1);
+                if (in.read() == ' ') {
                     in.reset();
+                    continue; // Keep on readin'
                 }
+                in.reset();
 
                 // Alright, we're done with this header.
                 String headerKey = convertBufferToTrimmedString(keyBuffer, keyBufferWritePos);
@@ -240,9 +238,8 @@ class ConnectionUtil {
     /* ---------------- */
 
     static String convertBufferToTrimmedString(byte[] buffer, int bufferLength) {
-        int startPos = 0;
-
         // Trim the leading.
+        int startPos = 0;
         for (; startPos < bufferLength; startPos++) {
             byte ch = buffer[startPos];
 
@@ -254,9 +251,10 @@ class ConnectionUtil {
             break;
         }
 
+        // Trim the trailing.
         int endPos = bufferLength;
         for (; endPos > 0; endPos--) {
-            byte ch = buffer[endPos];
+            byte ch = buffer[endPos - 1]; // Arrays are zero-indexed, so we sub 1.
 
             // Skip spaces.
             if (ch == ' ') {
