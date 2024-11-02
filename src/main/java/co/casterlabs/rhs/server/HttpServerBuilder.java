@@ -12,7 +12,7 @@ import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.commons.functional.tuples.Pair;
-import co.casterlabs.rhs.protocol.RHSProtoAdapter;
+import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.util.TaskExecutor;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -37,7 +37,7 @@ public class HttpServerBuilder {
 
     private @With boolean behindProxy;
 
-    private @With Map<String, Pair<RHSProtoAdapter<?, ?, ?>, Object>> protocols;
+    private @With Map<String, Pair<RHSProtocol<?, ?, ?>, Object>> protocols;
 
     private @With TaskExecutor blockingExecutor;
 
@@ -55,8 +55,8 @@ public class HttpServerBuilder {
         );
     }
 
-    public <S, R, H> HttpServerBuilder with(RHSProtoAdapter<S, R, H> protocol, H handler) {
-        Map<String, Pair<RHSProtoAdapter<?, ?, ?>, Object>> protocols = new HashMap<>(this.protocols);
+    public <S, R, H> HttpServerBuilder with(RHSProtocol<S, R, H> protocol, H handler) {
+        Map<String, Pair<RHSProtocol<?, ?, ?>, Object>> protocols = new HashMap<>(this.protocols);
         protocols.put(protocol.name(), new Pair<>(protocol, handler));
         return this.withProtocols(protocols);
     }

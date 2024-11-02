@@ -24,7 +24,7 @@ import co.casterlabs.commons.functional.tuples.Pair;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSConnectionReader;
 import co.casterlabs.rhs.protocol.RHSConnectionWriter;
-import co.casterlabs.rhs.protocol.RHSProtoAdapter;
+import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
@@ -102,14 +102,14 @@ public class HttpServer {
 
                 connection.logger.debug("Version: %s, Request headers: %s", connection.httpVersion, connection.headers);
 
-                String protocol = "http";
+                String protocolName = "http";
                 switch (connection.httpVersion) {
                     case HTTP_1_1: {
                         String connectionHeader = connection.headers.getSingleOrDefault("Connection", "").toLowerCase();
                         if (connectionHeader.toLowerCase().contains("upgrade")) {
                             String upgradeTo = connection.headers.getSingle("Upgrade");
                             if (upgradeTo == null) upgradeTo = "";
-                            protocol = upgradeTo.toLowerCase();
+                            protocolName = upgradeTo.toLowerCase();
                         }
                         break;
                     }
@@ -119,18 +119,21 @@ public class HttpServer {
                         break;
                 }
 
-                Pair<RHSProtoAdapter<?, ?, ?>, Object> adapterPair = this.config.getProtocols().get(protocol);
-                if (adapterPair == null) {
+                Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = this.config.getProtocols().get(protocolName);
+                if (protocolPair == null) {
                     connection.output.write(HTTP_1_1_UPGRADE_REJECT);
                     break;
                 }
 
+                RHSProtocol<?, ?, ?> protocol = protocolPair.a();
+                Object handler = protocolPair.b();
+
                 try {
-                    Object session = adapterPair.a().accept(connection);
-                    Object response = adapterPair.a().$handle_cast(session, adapterPair.b());
+                    Object session = protocol.accept(connection);
+                    Object response = protocol.$handle_cast(session, handler);
                     if (response == null) throw new DropConnectionException();
 
-                    boolean acceptAnotherRequest = adapterPair.a().$process_cast(session, response, connection, this.executor);
+                    boolean acceptAnotherRequest = protocol.$process_cast(session, response, connection, this.executor);
                     if (acceptAnotherRequest) {
                         // We're keeping the connection, let the while{} block do it's thing.
                         sessionLogger.debug("Keeping connection alive for subsequent requests.");

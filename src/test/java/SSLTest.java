@@ -10,7 +10,7 @@ import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
 
 import co.casterlabs.rhs.protocol.HttpStatus.StandardHttpStatus;
-import co.casterlabs.rhs.protocol.http.HttpProtoAdapter;
+import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.server.HttpServer;
 import co.casterlabs.rhs.server.HttpServerBuilder;
@@ -33,7 +33,7 @@ public class SSLTest {
             .withPort(443)
             .withSsl(factory)
             .with(
-                new HttpProtoAdapter(), (session) -> HttpResponse.newChunkedResponse(
+                new HttpProtocol(), (session) -> HttpResponse.newChunkedResponse(
                     StandardHttpStatus.OK,
                     new ByteArrayInputStream(String.format("Hello %s!", session.remoteNetworkAddress()).getBytes())
                 )

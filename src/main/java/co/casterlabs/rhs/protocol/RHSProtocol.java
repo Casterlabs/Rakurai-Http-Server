@@ -6,7 +6,7 @@ import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.TaskExecutor;
 
-public abstract class RHSProtoAdapter<S, R, H> {
+public abstract class RHSProtocol<S, R, H> {
 
     public abstract String name();
 

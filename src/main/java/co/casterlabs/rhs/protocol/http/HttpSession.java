@@ -121,7 +121,7 @@ public class HttpSession {
                     String expect = this.connection.headers.getSingle("Expect");
                     if ("100-continue".equalsIgnoreCase(expect)) {
                         // Immediately write a CONTINUE so that the client will send the body.
-                        this.connection.output.write(HttpProtoAdapter.HTTP_1_1_CONTINUE_LINE);
+                        this.connection.output.write(HttpProtocol.HTTP_1_1_CONTINUE_LINE);
                     }
                     break;
                 }

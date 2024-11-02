@@ -10,14 +10,14 @@ import co.casterlabs.rhs.protocol.HttpStatus;
 import co.casterlabs.rhs.protocol.HttpVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSConnectionWriter;
-import co.casterlabs.rhs.protocol.RHSProtoAdapter;
-import co.casterlabs.rhs.protocol.http.HttpProtoAdapter.HttpProtoHandler;
+import co.casterlabs.rhs.protocol.RHSProtocol;
+import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.TaskExecutor;
 
-public class HttpProtoAdapter extends RHSProtoAdapter<HttpSession, HttpResponse, HttpProtoHandler> {
+public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
     static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
     @Override

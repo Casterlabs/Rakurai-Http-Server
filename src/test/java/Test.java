@@ -6,7 +6,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
 import co.casterlabs.rhs.protocol.HttpStatus.StandardHttpStatus;
-import co.casterlabs.rhs.protocol.http.HttpProtoAdapter;
+import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.server.HttpServer;
 import co.casterlabs.rhs.server.HttpServerBuilder;
@@ -18,7 +18,7 @@ public class Test {
         HttpServer server = new HttpServerBuilder()
             .withPort(8080)
             .with(
-                new HttpProtoAdapter(), (session) -> HttpResponse.newChunkedResponse(
+                new HttpProtocol(), (session) -> HttpResponse.newChunkedResponse(
                     StandardHttpStatus.OK,
                     new ByteArrayInputStream(String.format("Hello %s!", session.remoteNetworkAddress()).getBytes())
                 )

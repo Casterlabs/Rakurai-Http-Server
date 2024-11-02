@@ -9,14 +9,14 @@ import java.util.concurrent.TimeUnit;
 
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSConnectionWriter;
-import co.casterlabs.rhs.protocol.RHSProtoAdapter;
-import co.casterlabs.rhs.protocol.websocket.WebsocketProtoAdapter.WebsocketHandler;
+import co.casterlabs.rhs.protocol.RHSProtocol;
+import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.TaskExecutor;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 
-public class WebsocketProtoAdapter extends RHSProtoAdapter<WebsocketSession, WebsocketListener, WebsocketHandler> {
+public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketListener, WebsocketHandler> {
     public static final long READ_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
 
     private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
