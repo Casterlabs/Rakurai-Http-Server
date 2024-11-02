@@ -22,7 +22,7 @@ public abstract class RHSProtocol<S, R, H> {
      */
     public abstract boolean process(S session, R response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException, DropConnectionException;
 
-    public abstract R handle(S session, H handler);
+    public abstract R handle(S session, H handler) throws DropConnectionException, HttpException;
 
     @Deprecated
     @SuppressWarnings("unchecked")
@@ -33,7 +33,7 @@ public abstract class RHSProtocol<S, R, H> {
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    public final Object $handle_cast(Object session, Object handler) {
+    public final Object $handle_cast(Object session, Object handler) throws DropConnectionException, HttpException {
         // This exists because of type erasure
         return handle((S) session, (H) handler);
     }

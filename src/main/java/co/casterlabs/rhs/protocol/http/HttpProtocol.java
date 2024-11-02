@@ -173,13 +173,13 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
     }
 
     @Override
-    public HttpResponse handle(HttpSession session, HttpProtoHandler handler) {
+    public HttpResponse handle(HttpSession session, HttpProtoHandler handler) throws DropConnectionException, HttpException {
         return handler.handle(session);
     }
 
     public static interface HttpProtoHandler {
 
-        public HttpResponse handle(HttpSession session);
+        public HttpResponse handle(HttpSession session) throws HttpException, DropConnectionException;
 
     }
 
