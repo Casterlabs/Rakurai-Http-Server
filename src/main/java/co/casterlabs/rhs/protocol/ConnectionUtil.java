@@ -2,50 +2,18 @@ package co.casterlabs.rhs.protocol;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 
-import org.jetbrains.annotations.Nullable;
-
-import co.casterlabs.rhs.server.TLSVersion;
-import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
-import co.casterlabs.rhs.util.SimpleUri;
-import xyz.e3ndr.fastloggingframework.logging.FastLogger;
+import co.casterlabs.rhs.util.HttpException;
 
-public class RHSConnectionReader {
+class ConnectionUtil {
     // @formatter:off
     private static final int MAX_METHOD_LENGTH = 512 /*b*/; // Also used for the http version.
     private static final int MAX_URI_LENGTH    = 256 /*kb*/ * 1024;
     private static final int MAX_HEADER_LENGTH =  16 /*kb*/ * 1024;
     // @formatter:on
 
-    public static RHSConnection accept(
-        FastLogger logger,
-        BufferedInputStream input,
-        OutputStream output,
-        String remoteAddress,
-        int serverPort,
-        @Nullable TLSVersion tlsVersion
-    ) throws IOException, HttpException {
-        // Request line
-        int[] $currentLinePosition = new int[1]; // int pointer :D
-        int[] $endOfLinePosition = new int[1]; // int pointer :D
-        byte[] requestLine = readRequestLine(input, $endOfLinePosition);
-
-        String method = readMethod(requestLine, $currentLinePosition, $endOfLinePosition[0]);
-        String uriPath = readURI(requestLine, $currentLinePosition, $endOfLinePosition[0]);
-        HttpVersion version = readVersion(requestLine, $currentLinePosition, $endOfLinePosition[0]);
-
-        // Headers
-        CaseInsensitiveMultiMap headers = // HTTP/0.9 doesn't have headers.
-            version == HttpVersion.HTTP_0_9 ? CaseInsensitiveMultiMap.EMPTY : readHeaders(input);
-
-        SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", ""), uriPath);
-
-        return new RHSConnection(logger, input, output, remoteAddress, serverPort, method, uri, headers, version, tlsVersion);
-    }
-
-    public static byte[] readRequestLine(BufferedInputStream in, int[] $endOfLinePosition) throws IOException, HttpException {
+    static byte[] readRequestLine(BufferedInputStream in, int[] $endOfLinePosition) throws IOException, HttpException {
         byte[] buffer = new byte[MAX_METHOD_LENGTH + MAX_URI_LENGTH + MAX_METHOD_LENGTH];
         int bufferWritePos = 0;
         while (true) {
@@ -88,7 +56,7 @@ public class RHSConnectionReader {
         return buffer;
     }
 
-    public static String readMethod(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
+    static String readMethod(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
         final int startPos = $currentLinePosition[0];
         int bufferReadPos = startPos;
         int length = -1;
@@ -125,7 +93,7 @@ public class RHSConnectionReader {
         return new String(buffer, startPos, length, RHSConnection.CHARSET);
     }
 
-    public static String readURI(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
+    static String readURI(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
         final int startPos = $currentLinePosition[0];
         int bufferReadPos = startPos;
         int length = -1;
@@ -170,7 +138,7 @@ public class RHSConnectionReader {
         return uri;
     }
 
-    public static HttpVersion readVersion(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
+    static HttpVersion readVersion(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
         final int startPos = $currentLinePosition[0];
         String version = new String(buffer, startPos, endOfLinePosition - startPos, RHSConnection.CHARSET);
 
@@ -181,7 +149,7 @@ public class RHSConnectionReader {
         }
     }
 
-    public static CaseInsensitiveMultiMap readHeaders(BufferedInputStream in) throws IOException {
+    static CaseInsensitiveMultiMap readHeaders(BufferedInputStream in) throws IOException {
         CaseInsensitiveMultiMap.Builder headers = new CaseInsensitiveMultiMap.Builder();
 
         byte[] keyBuffer = new byte[MAX_HEADER_LENGTH];
@@ -269,7 +237,7 @@ public class RHSConnectionReader {
     /* Helpers          */
     /* ---------------- */
 
-    public static String convertBufferToTrimmedString(byte[] buffer, int bufferLength) {
+    static String convertBufferToTrimmedString(byte[] buffer, int bufferLength) {
         int startPos = 0;
 
         // Trim the leading.

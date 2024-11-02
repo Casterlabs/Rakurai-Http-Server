@@ -1,14 +1,15 @@
 package co.casterlabs.rhs.protocol.http;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-import co.casterlabs.rhs.protocol.RHSConnectionReader;
+import co.casterlabs.rhs.protocol.RHSConnection;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 class ChunkedInputStream extends InputStream {
-    private BufferedInputStream in;
+    private final RHSConnection connection;
     private boolean isEndOfStream = false;
     private long currentChunkSize = 0;
 
@@ -17,10 +18,6 @@ class ChunkedInputStream extends InputStream {
     private byte[] buffer = new byte[16];
     private int bufferWritePos = 0;
     private int bufferChunkSizePos = -1;
-
-    public ChunkedInputStream(BufferedInputStream in) {
-        this.in = in;
-    }
 
     public void skipRemaining() throws IOException {
         while (!this.isEndOfStream) {
@@ -36,7 +33,7 @@ class ChunkedInputStream extends InputStream {
         this.bufferChunkSizePos = -1;
 
         while (true) {
-            int readCharacter = this.in.read();
+            int readCharacter = this.connection.input.read();
 
             if (readCharacter == -1) {
                 throw new IOException("Reached end of stream before chunked body was fully read.");
@@ -47,12 +44,12 @@ class ChunkedInputStream extends InputStream {
                 readCharacter = '\n';
 
                 // Peek at the next byte, if it's a \n then we need to consume it.
-                this.in.mark(1);
-                if (this.in.read() == '\n') {
-                    this.in.reset();
-                    this.in.skip(1);
+                this.connection.input.mark(1);
+                if (this.connection.input.read() == '\n') {
+                    this.connection.input.reset();
+                    this.connection.input.skip(1);
                 } else {
-                    this.in.reset();
+                    this.connection.input.reset();
                 }
             }
 
@@ -86,7 +83,7 @@ class ChunkedInputStream extends InputStream {
         // End of stream.
         if (this.currentChunkSize == 0) {
             this.isEndOfStream = true;
-            RHSConnectionReader.readHeaders(this.in); // Read the footer/trailers.
+            this.connection.readHeaders(); // Read the footer/trailers.
         }
     }
 
@@ -97,7 +94,7 @@ class ChunkedInputStream extends InputStream {
 
         try {
             this.currentChunkSize--;
-            return this.in.read();
+            return this.connection.input.read();
         } catch (IOException e) {
             this.isEndOfStream = true;
             throw e;
@@ -119,7 +116,7 @@ class ChunkedInputStream extends InputStream {
             len = (int) this.currentChunkSize;
         }
 
-        int read = this.in.read(b, off, len);
+        int read = this.connection.input.read(b, off, len);
         this.currentChunkSize -= read;
         return read;
     }
@@ -129,7 +126,7 @@ class ChunkedInputStream extends InputStream {
         this.startChunkReadIfNeeded();
         if (this.isEndOfStream) return -1;
 
-        long skipped = this.in.skip(n);
+        long skipped = this.connection.input.skip(n);
         this.currentChunkSize -= skipped;
         return skipped;
     }
@@ -141,7 +138,7 @@ class ChunkedInputStream extends InputStream {
 
         int chunkSize = this.currentChunkSize > Integer.MAX_VALUE ? // Clamp.
             Integer.MAX_VALUE : (int) this.currentChunkSize;
-        int actuallyAvailable = this.in.available();
+        int actuallyAvailable = this.connection.input.available();
 
         // Give them a truthful number :^)
         if (actuallyAvailable > chunkSize) {

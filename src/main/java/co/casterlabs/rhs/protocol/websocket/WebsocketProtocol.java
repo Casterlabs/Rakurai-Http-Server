@@ -8,7 +8,6 @@ import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 import co.casterlabs.rhs.protocol.RHSConnection;
-import co.casterlabs.rhs.protocol.RHSConnectionWriter;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.util.DropConnectionException;
@@ -70,11 +69,11 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
         try {
             // Upgrade the connection.
-            RHSConnectionWriter.writeString("HTTP/1.1 101 Switching Protocols\r\n", connection.output);
+            connection.writeString("HTTP/1.1 101 Switching Protocols\r\n");
             connection.logger.trace("Response status line: HTTP/1.1 101 Switching Protocols");
 
-            RHSConnectionWriter.writeString("Connection: Upgrade\r\n", connection.output);
-            RHSConnectionWriter.writeString("Upgrade: websocket\r\n", connection.output);
+            connection.writeString("Connection: Upgrade\r\n");
+            connection.writeString("Upgrade: websocket\r\n");
 
             // Generate the key and send it out.
             try {
@@ -90,9 +89,9 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
                     );
 
                     String acceptKey = Base64.getEncoder().encodeToString(hash.digest());
-                    RHSConnectionWriter.writeString("Sec-WebSocket-Accept: ", connection.output);
-                    RHSConnectionWriter.writeString(acceptKey, connection.output);
-                    RHSConnectionWriter.writeString("\r\n", connection.output);
+                    connection.writeString("Sec-WebSocket-Accept: ");
+                    connection.writeString(acceptKey);
+                    connection.writeString("\r\n");
                 }
             } catch (NoSuchAlgorithmException e) {
                 // Shouldn't happen.
@@ -104,14 +103,14 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
                 // Select the first WS protocol, if any are requested.
                 String protocol = session.protocol();
                 if (protocol != null) {
-                    RHSConnectionWriter.writeString("Sec-WebSocket-Protocol: ", connection.output);
-                    RHSConnectionWriter.writeString(protocol, connection.output);
-                    RHSConnectionWriter.writeString("\r\n", connection.output);
+                    connection.writeString("Sec-WebSocket-Protocol: ");
+                    connection.writeString(protocol);
+                    connection.writeString("\r\n");
                 }
             }
 
             // Write the separation line.
-            RHSConnectionWriter.writeString("\r\n", connection.output);
+            connection.writeString("\r\n");
             connection.logger.trace("WebSocket upgrade complete, ready to process frames.");
 
             switch (session.websocketVersion()) {

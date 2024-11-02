@@ -22,8 +22,6 @@ import javax.net.ssl.X509ExtendedKeyManager;
 
 import co.casterlabs.commons.functional.tuples.Pair;
 import co.casterlabs.rhs.protocol.RHSConnection;
-import co.casterlabs.rhs.protocol.RHSConnectionReader;
-import co.casterlabs.rhs.protocol.RHSConnectionWriter;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.DropConnectionException;
@@ -89,10 +87,10 @@ public class HttpServer {
 
             while (true) {
                 // Protocols can override this so we need to reset it every time.
-                clientSocket.setSoTimeout(RHSConnectionWriter.HTTP_PERSISTENT_TIMEOUT * 1000);
-                sessionLogger.trace("Set SO_TIMEOUT to %dms.", RHSConnectionWriter.HTTP_PERSISTENT_TIMEOUT * 1000);
+                clientSocket.setSoTimeout(RHSConnection.HTTP_PERSISTENT_TIMEOUT * 1000);
+                sessionLogger.trace("Set SO_TIMEOUT to %dms.", RHSConnection.HTTP_PERSISTENT_TIMEOUT * 1000);
 
-                RHSConnection connection = RHSConnectionReader.accept(
+                RHSConnection connection = RHSConnection.accept(
                     sessionLogger,
                     bufferedInput, output,
                     remoteAddress, port(),
@@ -142,8 +140,8 @@ public class HttpServer {
                         break;
                     }
                 } catch (HttpException e) {
-                    RHSConnectionWriter.writeOutStatus(connection, e.status);
-                    RHSConnectionWriter.writeOutHeaders(connection, ZERO_LENGTH_HEADER);
+                    connection.writeOutStatus(e.status);
+                    connection.writeOutHeaders(ZERO_LENGTH_HEADER);
                     break;
                 }
             }

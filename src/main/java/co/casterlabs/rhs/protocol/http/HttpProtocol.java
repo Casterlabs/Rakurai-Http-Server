@@ -9,7 +9,6 @@ import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
 import co.casterlabs.rhs.protocol.HttpStatus;
 import co.casterlabs.rhs.protocol.HttpVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
-import co.casterlabs.rhs.protocol.RHSConnectionWriter;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
@@ -39,7 +38,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 // Look for a chunked body, otherwise fall through to normal fixed-length
                 // behavior (1.0).
                 if ("chunked".equalsIgnoreCase(connection.headers.getSingle("Transfer-Encoding"))) {
-                    bodyInput = new ChunkedInputStream(connection.input);
+                    bodyInput = new ChunkedInputStream(connection);
                     connection.logger.debug("Detected chunked body.");
                     break;
                 }
@@ -126,7 +125,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             if (kaRequested) {
                 // Add the keepalive headers.
                 response.header("Connection", "keep-alive");
-                response.header("Keep-Alive", "timeout=" + RHSConnectionWriter.HTTP_PERSISTENT_TIMEOUT);
+                response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
             } else {
                 // Let the client know that we will be closing the socket.
                 response.header("Connection", "close");
@@ -134,7 +133,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
             // Write out a Date header for HTTP/1.1 requests with a non-100 status code.
             if ((connection.httpVersion.value >= 1.1) && (response.status.statusCode() >= 200)) {
-                response.header("Date", RHSConnectionWriter.getHttpTime());
+                response.header("Date", RHSConnection.getHttpTime());
             }
 
             if (contentEncoding != null) {
@@ -143,13 +142,13 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             }
         }
 
-        RHSConnectionWriter.writeOutStatus(connection, response.status);
-        RHSConnectionWriter.writeOutHeaders(connection, response.headers);
+        connection.writeOutStatus(response.status);
+        connection.writeOutHeaders(response.headers);
 
         OutputStream out = null;
         try (ResponseContent responseContent = response.content) {
             if (responseMode == ResponseMode.CHUNKED) {
-                out = new ChunkedOutputStream(connection.output);
+                out = new ChunkedOutputStream(connection);
             } else {
                 out = new NonCloseableOutputStream(connection.output);
             }
