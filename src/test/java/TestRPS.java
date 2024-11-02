@@ -16,7 +16,7 @@ public class TestRPS {
     public static void main(String[] args) throws IOException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
 //        FastLoggingFramework.setDefaultLevel(LogLevel.ALL);
 
-        // npx loadtest -k http://localhost:8080
+        // npx autocannon -d 10 -c 6 http://localhost:8080
 
         HttpServer server = new HttpServerBuilder()
             .withPort(8080)
