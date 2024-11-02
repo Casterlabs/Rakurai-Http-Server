@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class HttpSession {
-    private final RHSConnection connection;
+    protected final RHSConnection connection;
     private final @Nullable InputStream bodyIn;
 
     private byte[] cachedBody;
