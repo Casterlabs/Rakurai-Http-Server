@@ -12,7 +12,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Consumer;
 
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
@@ -29,6 +28,8 @@ import co.casterlabs.rhs.protocol.RHSProtoAdapter;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
+import co.casterlabs.rhs.util.TaskExecutor;
+import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 import lombok.Getter;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
@@ -45,7 +46,7 @@ public class HttpServer {
 
     private List<Socket> connectedClients = Collections.synchronizedList(new LinkedList<>());
     private ServerSocket serverSocket;
-    private Consumer<Runnable> executor;
+    private TaskExecutor executor;
 
     private @Getter boolean isSecure;
 
@@ -60,7 +61,7 @@ public class HttpServer {
             Socket clientSocket = this.serverSocket.accept();
             this.connectedClients.add(clientSocket);
 
-            this.executor.accept(() -> this.handle(clientSocket));
+            this.executor.execute(() -> this.handle(clientSocket), TaskUrgency.DELAYABLE);
         } catch (Throwable t) {
             this.logger.severe("An error occurred whilst accepting a new connection:\n%s", t);
         }
@@ -129,7 +130,7 @@ public class HttpServer {
                     Object response = adapterPair.a().$handle_cast(session, adapterPair.b());
                     if (response == null) throw new DropConnectionException();
 
-                    boolean acceptAnotherRequest = adapterPair.a().$process_cast(session, response, connection);
+                    boolean acceptAnotherRequest = adapterPair.a().$process_cast(session, response, connection, this.executor);
                     if (acceptAnotherRequest) {
                         // We're keeping the connection, let the while{} block do it's thing.
                         sessionLogger.debug("Keeping connection alive for subsequent requests.");

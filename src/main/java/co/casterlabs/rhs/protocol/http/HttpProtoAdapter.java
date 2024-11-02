@@ -15,6 +15,7 @@ import co.casterlabs.rhs.protocol.http.HttpProtoAdapter.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
+import co.casterlabs.rhs.util.TaskExecutor;
 
 public class HttpProtoAdapter extends RHSProtoAdapter<HttpSession, HttpResponse, HttpProtoHandler> {
     static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
@@ -64,7 +65,7 @@ public class HttpProtoAdapter extends RHSProtoAdapter<HttpSession, HttpResponse,
     }
 
     @Override
-    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection) throws IOException, HttpException {
+    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection, TaskExecutor executor) throws IOException, HttpException {
         boolean kaRequested = false;
 
         switch (connection.httpVersion) {

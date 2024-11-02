@@ -8,12 +8,12 @@ import java.security.cert.CertificateException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.commons.functional.tuples.Pair;
 import co.casterlabs.rhs.protocol.RHSProtoAdapter;
+import co.casterlabs.rhs.util.TaskExecutor;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -39,14 +39,19 @@ public class HttpServerBuilder {
 
     private @With Map<String, Pair<RHSProtoAdapter<?, ?, ?>, Object>> protocols;
 
-    private @With Consumer<Runnable> blockingExecutor;
+    private @With TaskExecutor blockingExecutor;
 
     public HttpServerBuilder() {
         this(
             "::", 80,
             null, false,
             Collections.emptyMap(),
-            (r) -> new Thread(r).start()
+            (r, u) -> {
+                Thread t = new Thread(r);
+                t.setName(u + " THREAD");
+                t.start();
+                return t;
+            }
         );
     }
 
