@@ -23,10 +23,11 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.server.TLSVersion;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.SimpleUri;
+import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class HttpSession {
     private final RHSConnection connection;
     private final @Nullable InputStream bodyIn;
