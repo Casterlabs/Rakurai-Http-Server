@@ -143,8 +143,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             }
         }
 
-        connection.writeOutStatus(response.status);
-        connection.writeOutHeaders(response.headers);
+        connection.respond(response.status, response.headers);
 
         if (!connection.method.equalsIgnoreCase("HEAD")) {
             OutputStream out = null;

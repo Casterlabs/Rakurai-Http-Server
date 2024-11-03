@@ -8,6 +8,7 @@ import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.OverzealousInputStream;
+import co.casterlabs.rhs.util.WorkBuffer;
 import lombok.AllArgsConstructor;
 
 class ConnectionUtil {
@@ -139,24 +140,20 @@ class ConnectionUtil {
 
             buffer.marker = buffer.limit;
 
+            if (buffer.available() == 0) {
+                throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
+            }
+
             int amountToRead = Math.min(Math.min(buffer.available(), guessedMtu), in.available());
             if (amountToRead == 0) {
                 amountToRead++;
             }
 
             int read = in.read(buffer.raw, buffer.limit, amountToRead);
-            if (read != -1) {
+            if (read == -1) {
+                throw new IOException("Reached end of stream before line was fully read.");
+            } else {
                 buffer.limit += read;
-            }
-
-            if (buffer.available() == 0) {
-                throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
-            } else if (read == -1) {
-                if (buffer.limit == 0) {
-                    throw new IOException("Socket closed.");
-                } else {
-                    throw new IOException("Reached end of stream before line was fully read.");
-                }
             }
         }
     }

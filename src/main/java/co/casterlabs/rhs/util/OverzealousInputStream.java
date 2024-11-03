@@ -10,7 +10,7 @@ import java.io.InputStream;
 public class OverzealousInputStream extends InputStream {
     private final InputStream underlying;
 
-    private byte[] overage = {};
+    private byte[] overage = new byte[1024];
     private int overageEnd = 0;
     private int overageIndex = 0;
 
@@ -18,16 +18,30 @@ public class OverzealousInputStream extends InputStream {
         this.underlying = underlying;
     }
 
-    public void append(byte[] overage, int startAt, int endAt) {
-        int previousRemaining = this.overageEnd - this.overageIndex;
+    private void ensureCapacity(int additionalSize) {
+        int requiredCapacity = this.overageEnd - this.overageIndex + additionalSize;
+        if (requiredCapacity > this.overage.length) {
+            int newCapacity = Math.max(this.overage.length * 2, requiredCapacity);
+            byte[] newBuffer = new byte[newCapacity];
+            System.arraycopy(this.overage, this.overageIndex, newBuffer, 0, this.overageEnd - this.overageIndex);
+            this.overageEnd -= this.overageIndex;
+            this.overageIndex = 0;
+            this.overage = newBuffer;
+        } else if (this.overageIndex > 0) {
+            // Shift data if there’s unused space at the beginning
+            System.arraycopy(this.overage, this.overageIndex, this.overage, 0, this.overageEnd - this.overageIndex);
+            this.overageEnd -= this.overageIndex;
+            this.overageIndex = 0;
+        }
+    }
+
+    public void append(byte[] data, int startAt, int endAt) {
         int newRemaining = endAt - startAt;
+        ensureCapacity(newRemaining);
 
-        byte[] newOverage = new byte[previousRemaining + newRemaining];
-        System.arraycopy(this.overage, this.overageIndex, newOverage, 0, previousRemaining);
-        System.arraycopy(overage, startAt, newOverage, previousRemaining, newRemaining);
-
-        this.overage = newOverage;
-        this.overageEnd = this.overage.length;
+        // Copy new data to the buffer
+        System.arraycopy(data, startAt, this.overage, this.overageEnd, newRemaining);
+        this.overageEnd += newRemaining;
     }
 
     @Override

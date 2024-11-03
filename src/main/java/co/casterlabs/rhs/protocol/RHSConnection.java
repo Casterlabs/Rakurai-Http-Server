@@ -4,13 +4,13 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +30,7 @@ public class RHSConnection implements Closeable {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O");
 
     public static final int HTTP_PERSISTENT_TIMEOUT = 30;
-    public static final Charset CHARSET = Charset.forName(System.getProperty("rakurai.http.charset", "ISO-8859-1"));
+    public static final Charset CHARSET = StandardCharsets.ISO_8859_1;
 
     public final FastLogger logger;
 
@@ -85,53 +85,48 @@ public class RHSConnection implements Closeable {
     /* Write Utilities  */
     /* ---------------- */
 
-    public void writeOutStatus(HttpStatus status) throws IOException {
+    public void respond(HttpStatus status, Map<String, String> headers) throws IOException {
         // 0.9 doesn't have a status line, so we don't write it out.
         if (this.httpVersion == HttpVersion.HTTP_0_9) return;
 
-        this.writeString(this.httpVersion.toString());
-        this.writeString(" ");
-        this.writeString(status.statusString());
-        this.writeString("\r\n");
-    }
+        StringBuilder response = new StringBuilder();
 
-    public void writeOutHeaders(CaseInsensitiveMultiMap headers) throws IOException {
-        // 0.9 doesn't have headers, so we don't write it out.
-        if (this.httpVersion == HttpVersion.HTTP_0_9) return;
+        response.append(this.httpVersion.toString())
+            .append(' ')
+            .append(status.statusString())
+            .append('\r')
+            .append('\n');
 
-        for (Entry<String, List<String>> entry : headers.entrySet()) {
-            String key = entry.getKey();
-            for (String value : entry.getValue()) {
-                this.writeString(key);
-                this.writeString(": ");
-                this.writeString(value);
-                this.writeString("\r\n");
+        // 0.9 doesn't have headers, so we don't write them out.
+        if (this.httpVersion != HttpVersion.HTTP_0_9) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+
+                response
+                    .append(key)
+                    .append(':')
+                    .append(' ')
+                    .append(value)
+                    .append('\r')
+                    .append('\n');
+
+//                this.output.write(key.getBytes(CHARSET));
+//                this.output.write(':');
+//                this.output.write(' ');
+//                this.output.write(value.getBytes(CHARSET));
+//                this.output.write('\r');
+//                this.output.write('\n');
             }
+
+            // Write the separation line.
+            response
+                .append('\r')
+                .append('\n');
         }
 
-        // Write the separation line.
-        this.writeString("\r\n");
-    }
+        this.output.write(response.toString().getBytes(CHARSET));
 
-    public void writeOutHeaders(Map<String, String> headers) throws IOException {
-        // 0.9 doesn't have headers, so we don't write it out.
-        if (this.httpVersion == HttpVersion.HTTP_0_9) return;
-
-        for (Entry<String, String> entry : headers.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-            this.writeString(key);
-            this.writeString(": ");
-            this.writeString(value);
-            this.writeString("\r\n");
-        }
-
-        // Write the separation line.
-        this.writeString("\r\n");
-    }
-
-    public void writeString(String str) throws IOException {
-        this.output.write(str.getBytes(CHARSET));
     }
 
     /* ---------------- */

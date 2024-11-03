@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
@@ -22,7 +23,6 @@ import javax.net.ssl.X509ExtendedKeyManager;
 import co.casterlabs.commons.functional.tuples.Pair;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
-import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.OverzealousInputStream;
@@ -34,9 +34,7 @@ import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 public class HttpServer {
     private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Unable to Upgrade\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
-    private static final CaseInsensitiveMultiMap ZERO_LENGTH_HEADER = new CaseInsensitiveMultiMap.Builder()
-        .put("Content-Length", "0")
-        .build();
+    private static final Map<String, String> ZERO_LENGTH_HEADER = Map.of("Content-Length", "0");
 
     private final FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
 
@@ -244,8 +242,7 @@ public class HttpServer {
                         return;
                     }
                 } catch (HttpException e) {
-                    connection.writeOutStatus(e.status);
-                    connection.writeOutHeaders(ZERO_LENGTH_HEADER);
+                    connection.respond(e.status, ZERO_LENGTH_HEADER);
                     return;
                 }
             }

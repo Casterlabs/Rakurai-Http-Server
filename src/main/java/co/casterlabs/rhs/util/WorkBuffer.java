@@ -1,9 +1,9 @@
-package co.casterlabs.rhs.protocol;
+package co.casterlabs.rhs.util;
 
-class WorkBuffer {
-    final byte[] raw;
-    int marker;
-    int limit = 0;
+public class WorkBuffer {
+    public final byte[] raw;
+    public int marker;
+    public int limit = 0;
 
     public WorkBuffer(int bufferSize) {
         this.raw = new byte[bufferSize];
