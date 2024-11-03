@@ -61,8 +61,8 @@ public interface HttpStatus {
         // @formatter:off
         
                                        /* -------- Informational -------- */
-//                                           CONTINUE(100, "Continue"),
-//                                SWITCHING_PROTOCOLS(101, "Switching Protocols"),
+                                           CONTINUE(100, "Continue"),
+                                SWITCHING_PROTOCOLS(101, "Switching Protocols"),
                                          PROCESSING(102, "Processing"), // (WebDAV)
 
                                        /* -------- Success -------- */

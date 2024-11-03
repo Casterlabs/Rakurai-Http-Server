@@ -7,10 +7,15 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import co.casterlabs.rhs.HttpServerBuilder;
+import org.jetbrains.annotations.Nullable;
+
+import co.casterlabs.rhs.HttpStatus;
+import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
@@ -21,15 +26,10 @@ import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketListener, WebsocketHandler> {
     public static final long READ_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
 
-    // @formatter:off
     private static final HashSet<String> ACCEPTED_VERSIONS = new HashSet<>(Arrays.asList("13"));
-    // @formatter:on
 
-    private static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
-    private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Upgrade Failed\r\n\r\n".getBytes(RHSConnection.CHARSET);
-
-    private static final byte[] WS_VERSION_REJECT = String.format("HTTP/1.1 400 426 Upgrade Required\r\nSec-WebSocket-Version: %s\r\n\r\n", String.join(",", ACCEPTED_VERSIONS)).getBytes(RHSConnection.CHARSET);
-    private static final byte[] WS_ISE = "HTTP/1.1 400 500 Internal Server Error\r\n\r\n".getBytes(RHSConnection.CHARSET);
+    private static final HttpStatus HTTP_1_1_UPGRADE_REJECT = HttpStatus.adapt(400, "Failed to Upgrade");
+    private static final Map<String, String> WS_VERSION_REJECT_HEADERS = Map.of("Sec-WebSocket-Version", String.join(",", ACCEPTED_VERSIONS));
 
     @Override
     public String name() {
@@ -37,11 +37,11 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
     }
 
     @Override
-    public WebsocketSession accept(RHSConnection connection) throws IOException, HttpException, DropConnectionException {
+    public @Nullable WebsocketSession accept(RHSConnection connection) throws IOException, HttpException, DropConnectionException {
         if (!connection.method.equalsIgnoreCase("GET")) {
             connection.logger.trace("Rejecting websocket upgrade, method was %s.", connection.method);
-            connection.output.write(HTTP_1_1_UPGRADE_REJECT);
-            throw new DropConnectionException();
+            connection.respond(HTTP_1_1_UPGRADE_REJECT);
+            return null;
         }
 
         int wsVersion = connection.headers.getOrDefault("Sec-WebSocket-Version", Collections.emptyList())
@@ -56,22 +56,13 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
         if (wsVersion == -1) {
             connection.logger.warn("Rejected websocket version: %s", wsVersion);
-            connection.output.write(WS_VERSION_REJECT);
-            throw new DropConnectionException();
+            connection.respond(StandardHttpStatus.UPGRADE_REQUIRED, WS_VERSION_REJECT_HEADERS);
+            return null;
         }
 
         String wsProtocol = connection.headers.getSingle("Sec-WebSocket-Protocol");
         if (wsProtocol != null) {
             wsProtocol = wsProtocol.split(",")[0].trim(); // First.
-        }
-
-        {
-            String expect = connection.headers.getSingle("Expect");
-            if ("100-continue".equalsIgnoreCase(expect)) {
-                // Immediately write a CONTINUE so that the client will send the body.
-                connection.output.write(HTTP_1_1_CONTINUE_LINE);
-            }
-            connection.expectFulfilled = true;
         }
 
         connection.logger.trace("Accepted websocket version: %s", wsVersion);
@@ -80,61 +71,39 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
     }
 
     @Override
-    public boolean process(WebsocketSession session, WebsocketListener listener, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException, DropConnectionException {
+    public boolean process(WebsocketSession session, WebsocketListener listener, RHSConnection connection) throws IOException, HttpException, DropConnectionException {
         Websocket websocket = null;
 
         try {
-            // Upgrade the connection.
-            connection.writeString("HTTP/1.1 101 Switching Protocols\r\n");
             connection.logger.trace("Response status line: HTTP/1.1 101 Switching Protocols");
 
-            connection.writeString("Connection: Upgrade\r\n");
-            connection.writeString("Upgrade: websocket\r\n");
+            Map<String, String> responseHeaders = new HashMap<>();
+            responseHeaders.put("Upgrade", "websocket");
+            responseHeaders.put("Connection", "Upgrade");
 
             // Generate the key and send it out.
-            try {
-                String clientKey = connection.headers.getSingle("Sec-WebSocket-Key");
+            String clientKey = connection.headers.getSingle("Sec-WebSocket-Key");
+            if (clientKey != null) {
+                MessageDigest hash = MessageDigest.getInstance("SHA-1");
+                hash.reset();
+                hash.update(
+                    clientKey
+                        .concat("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+                        .getBytes(StandardCharsets.UTF_8)
+                );
 
-                if (clientKey != null) {
-                    MessageDigest hash = MessageDigest.getInstance("SHA-1");
-                    hash.reset();
-                    hash.update(
-                        clientKey
-                            .concat("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
-                            .getBytes(StandardCharsets.UTF_8)
-                    );
-
-                    String acceptKey = Base64.getEncoder().encodeToString(hash.digest());
-                    connection.writeString("Sec-WebSocket-Accept: ");
-                    connection.writeString(acceptKey);
-                    connection.writeString("\r\n");
-                }
-            } catch (NoSuchAlgorithmException e) {
-                // Shouldn't happen.
-                connection.logger.exception(e);
-                connection.output.write(WS_ISE);
+                String acceptKey = Base64.getEncoder().encodeToString(hash.digest());
+                responseHeaders.put("Sec-WebSocket-Accept", acceptKey);
             }
 
-            {
-                // Select the first WS protocol, if any are requested.
-                String protocol = session.protocol();
-                if (protocol != null) {
-                    connection.writeString("Sec-WebSocket-Protocol: ");
-                    connection.writeString(protocol);
-                    connection.writeString("\r\n");
-                }
+            // Select the first WS protocol, if any are requested.
+            String wsProtocol = session.protocol();
+            if (wsProtocol != null) {
+                responseHeaders.put("Sec-WebSocket-Protocol", wsProtocol);
             }
 
-            connection.writeString("Date: ");
-            connection.writeString(RHSConnection.getHttpTime());
-            connection.writeString("\r\n");
-
-            connection.writeString("Server: ");
-            connection.writeString(config.serverHeader());
-            connection.writeString("\r\n");
-
-            // Write the separation line.
-            connection.writeString("\r\n");
+            // Upgrade the connection.
+            connection.respond(StandardHttpStatus.SWITCHING_PROTOCOLS, responseHeaders);
             connection.logger.trace("WebSocket upgrade complete, ready to process frames.");
 
             switch (session.websocketVersion()) {
@@ -149,8 +118,8 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
             final Websocket $websocket_pointer = websocket;
 
-            final Thread readThread = config.taskExecutor().execute($websocket_pointer::process, TaskUrgency.IMMEDIATE);
-            final Thread pingThread = config.taskExecutor().execute(() -> {
+            final Thread readThread = connection.config.taskExecutor().execute($websocket_pointer::process, TaskUrgency.IMMEDIATE);
+            final Thread pingThread = connection.config.taskExecutor().execute(() -> {
                 try {
                     while (true) {
                         $websocket_pointer.ping();
@@ -163,6 +132,10 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
             readThread.join();
             pingThread.interrupt(); // Cancel that task in case it's still running.
+        } catch (NoSuchAlgorithmException e) {
+            // Shouldn't happen.
+            connection.logger.exception(e);
+            connection.respond(StandardHttpStatus.INTERNAL_ERROR);
         } catch (InterruptedException ignored) {
             // NOOP
         } finally {

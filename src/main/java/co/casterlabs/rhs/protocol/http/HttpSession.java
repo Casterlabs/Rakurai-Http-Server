@@ -114,25 +114,9 @@ public class HttpSession {
      * @implNote Reading from this stream will consume the request body, preventing
      *           you from using getRequestBodyBytes() and similar methods.
      */
+    @SuppressWarnings("deprecation")
     public @Nullable InputStream getRequestBodyStream() throws IOException {
-        if (!this.connection.expectFulfilled) {
-            switch (this.connection.httpVersion) {
-                case HTTP_1_1: {
-                    String expect = this.connection.headers.getSingle("Expect");
-                    if ("100-continue".equalsIgnoreCase(expect)) {
-                        // Immediately write a CONTINUE so that the client will send the body.
-                        this.connection.output.write(HttpProtocol.HTTP_1_1_CONTINUE_LINE);
-                    }
-                    break;
-                }
-
-                case HTTP_1_0:
-                case HTTP_0_9:
-                    break;
-            }
-            this.connection.expectFulfilled = true;
-        }
-
+        this.connection.satisfyExpectations();
         return this.bodyIn;
     }
 

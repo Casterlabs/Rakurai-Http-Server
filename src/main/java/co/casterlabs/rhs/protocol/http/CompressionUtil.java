@@ -14,6 +14,7 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 
 class CompressionUtil {
+    private static final int COMPRESSION_THRESHOLD = 100 /*kb*/ * 1024; // Arbitrary
 
     private static boolean shouldCompress(@Nullable String mimeType) {
         if (mimeType == null) return false;
@@ -58,6 +59,11 @@ class CompressionUtil {
             return null;
         }
 
+        if (response.content.length() < COMPRESSION_THRESHOLD) {
+            // This handles both chunked and fixed-length responses.
+            return null;
+        }
+
         if (!shouldCompress(response.headers.get("Content-Type"))) {
             return null;
         }
@@ -75,7 +81,7 @@ class CompressionUtil {
         return null;
     }
 
-    static void writeWithEncoding(@Nullable String encoding, OutputStream out, ResponseContent content) throws IOException {
+    static void writeWithEncoding(@Nullable String encoding, int recommendedBufferSize, OutputStream out, ResponseContent content) throws IOException {
         if (encoding == null) {
             encoding = ""; // Switch doesn't support nulls :/
         }
@@ -83,18 +89,18 @@ class CompressionUtil {
         switch (encoding) {
             case "gzip":
                 try (GZIPOutputStream enc = new GZIPOutputStream(out)) {
-                    content.write(enc);
+                    content.write(recommendedBufferSize, enc);
                 }
                 break;
 
             case "deflate":
                 try (DeflaterOutputStream enc = new DeflaterOutputStream(out)) {
-                    content.write(enc);
+                    content.write(recommendedBufferSize, enc);
                 }
                 break;
 
             default:
-                content.write(out);
+                content.write(recommendedBufferSize, out);
                 break;
         }
     }

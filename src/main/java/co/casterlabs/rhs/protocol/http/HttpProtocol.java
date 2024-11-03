@@ -4,9 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.jetbrains.annotations.Nullable;
+
 import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
-import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
@@ -17,7 +18,6 @@ import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
-    static final byte[] HTTP_1_1_CONTINUE_LINE = "HTTP/1.1 100 Continue\r\n\r\n".getBytes(RHSConnection.CHARSET);
 
     @Override
     public String name() {
@@ -25,7 +25,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
     }
 
     @Override
-    public HttpSession accept(RHSConnection connection) throws IOException, HttpException, DropConnectionException {
+    public @Nullable HttpSession accept(RHSConnection connection) throws IOException, HttpException, DropConnectionException {
         // Retrieve the body, if any.
         InputStream bodyInput = null;
         switch (connection.httpVersion) {
@@ -63,23 +63,13 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
         return new HttpSession(connection, bodyInput);
     }
 
+    @SuppressWarnings("deprecation")
     @Override
-    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException {
+    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection) throws IOException, HttpException {
         boolean kaRequested = false;
 
         switch (connection.httpVersion) {
-            case HTTP_1_1: {
-                if (!connection.expectFulfilled) {
-                    String expect = connection.headers.getSingle("Expect");
-                    if ("100-continue".equalsIgnoreCase(expect)) {
-                        // Immediately write a CONTINUE so that the client will send the body.
-                        connection.output.write(HTTP_1_1_CONTINUE_LINE);
-                    }
-                    connection.expectFulfilled = true;
-                }
-                // Fall through.
-            }
-
+            case HTTP_1_1:
             case HTTP_1_0: {
                 String connectionHeader = connection.headers.getSingleOrDefault("Connection", "").toLowerCase();
                 if (connectionHeader.contains("keep-alive")) {
@@ -100,7 +90,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             }
         }
 
-        long length = response.content.getLength();
+        long length = response.content.length();
         String contentEncoding = null;
         ResponseMode responseMode = null;
 
@@ -131,12 +121,6 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 response.header("Connection", "close");
             }
 
-            // Write out a Date header for HTTP/1 requests with a non-100 status code.
-            if ((connection.httpVersion.value >= 1) && (response.status.statusCode() >= 200)) {
-                response.header("Date", RHSConnection.getHttpTime());
-                response.header("Server", config.serverHeader());
-            }
-
             if (contentEncoding != null) {
                 response.header("Content-Encoding", contentEncoding);
                 response.header("Vary", "Accept-Encoding");
@@ -155,7 +139,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 }
 
                 // Write out the response, defaulting to non-encoded responses.
-                CompressionUtil.writeWithEncoding(contentEncoding, out, responseContent);
+                CompressionUtil.writeWithEncoding(contentEncoding, connection.guessedMtu, out, responseContent);
             } finally {
                 // Chunked output streams have special close implementations that don't actually
                 // close the underlying connection, they just signal that this is the end of the

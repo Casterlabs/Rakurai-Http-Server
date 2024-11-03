@@ -144,10 +144,10 @@ class ConnectionUtil {
                 throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
             }
 
-            int amountToRead = Math.min(Math.min(buffer.available(), guessedMtu), in.available());
-            if (amountToRead == 0) {
-                amountToRead++;
-            }
+            int amountToRead = Math.min(
+                Math.max(guessedMtu, in.available()), // We might already have > mtu waiting on the wire
+                buffer.available() // Limit by available space.
+            );
 
             int read = in.read(buffer.raw, buffer.limit, amountToRead);
             if (read == -1) {

@@ -2,7 +2,8 @@ package co.casterlabs.rhs.protocol;
 
 import java.io.IOException;
 
-import co.casterlabs.rhs.HttpServerBuilder;
+import org.jetbrains.annotations.Nullable;
+
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
 
@@ -20,20 +21,20 @@ public abstract class RHSProtocol<S, R, H> {
      * @implSpec If you do plan on reusing the connection, you <b>MUST</b> swallow
      *           the response by the time this method returns.
      */
-    public abstract boolean process(S session, R response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException, DropConnectionException;
+    public abstract boolean process(S session, R response, RHSConnection connection) throws IOException, HttpException, DropConnectionException;
 
-    public abstract R handle(S session, H handler) throws DropConnectionException, HttpException;
+    public abstract @Nullable R handle(S session, H handler) throws DropConnectionException, HttpException;
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    public final boolean $process_cast(Object session, Object response, RHSConnection connection, HttpServerBuilder config) throws IOException, HttpException {
+    public final boolean $process_cast(Object session, Object response, RHSConnection connection) throws IOException, HttpException {
         // This exists because of type erasure
-        return process((S) session, (R) response, connection, config);
+        return process((S) session, (R) response, connection);
     }
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    public final Object $handle_cast(Object session, Object handler) throws DropConnectionException, HttpException {
+    public final @Nullable Object $handle_cast(Object session, Object handler) throws DropConnectionException, HttpException {
         // This exists because of type erasure
         return handle((S) session, (H) handler);
     }

@@ -27,14 +27,15 @@ import lombok.Getter;
 import lombok.NonNull;
 
 public class HttpResponse {
+    public static final byte[] EMPTY_BODY = new byte[0];
+
     /**
      * This response is used to signal to the server that we need to drop the
      * connection ASAP. (Assuming throwing {@link DropConnectionException} isn't
      * viable)
      */
-    public static final HttpResponse NO_RESPONSE = HttpResponse.newFixedLengthResponse(StandardHttpStatus.NO_RESPONSE, new byte[0]);
-    public static final HttpResponse INTERNAL_ERROR = HttpResponse.newFixedLengthResponse(StandardHttpStatus.INTERNAL_ERROR, new byte[0]);
-    public static final byte[] EMPTY_BODY = new byte[0];
+    public static final HttpResponse NO_RESPONSE = HttpResponse.newFixedLengthResponse(StandardHttpStatus.NO_RESPONSE, EMPTY_BODY);
+    public static final HttpResponse INTERNAL_ERROR = HttpResponse.newFixedLengthResponse(StandardHttpStatus.INTERNAL_ERROR, EMPTY_BODY);
 
     Map<String, String> headers = new HashMap<>();
     ResponseContent content;
@@ -78,7 +79,8 @@ public class HttpResponse {
     }
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull char[] body) {
-        return newFixedLengthResponse(status, CharStrings.strbytes(body));
+        return newFixedLengthResponse(status, CharStrings.strbytes(body))
+            .mime("text/plain; charset=utf-8");
     }
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull JsonElement json) {
@@ -95,12 +97,7 @@ public class HttpResponse {
     }
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull byte[] body) {
-        HttpResponse response = new HttpResponse(
-            new ByteResponse(body),
-            status
-        );
-
-        return response;
+        return new HttpResponse(new ByteResponse(body), status);
     }
 
     /* ---------------- */
@@ -108,12 +105,10 @@ public class HttpResponse {
     /* ---------------- */
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull InputStream responseStream, long length) {
-        HttpResponse response = new HttpResponse(
+        return new HttpResponse(
             new StreamResponse(responseStream, length),
             status
         );
-
-        return response;
     }
 
     public static HttpResponse newChunkedResponse(@NonNull HttpStatus status, @NonNull InputStream responseStream) {
@@ -198,12 +193,12 @@ public class HttpResponse {
 
     public static interface ResponseContent extends Closeable {
 
-        public void write(OutputStream out) throws IOException;
+        public void write(int recommendedBufferSize, OutputStream out) throws IOException;
 
         /**
          * @return any negative number for a chunked response.
          */
-        public long getLength();
+        public long length();
 
     }
 
@@ -214,23 +209,24 @@ public class HttpResponse {
         private long length;
 
         @Override
-        public void write(OutputStream out) throws IOException {
+        public void write(int recommendedBufferSize, OutputStream out) throws IOException {
             StreamUtil.streamTransfer(
                 this.response,
                 out,
-                8192,
+                recommendedBufferSize,
                 this.length
             );
         }
 
         @Override
-        public long getLength() {
+        public long length() {
             return this.length;
         }
 
         @Override
         public void close() throws IOException {
             this.response.close();
+            this.response = null; // Free, incase of leaks.
         }
     }
 
@@ -240,12 +236,12 @@ public class HttpResponse {
         private byte[] response;
 
         @Override
-        public void write(OutputStream out) throws IOException {
+        public void write(int recommendedBufferSize, OutputStream out) throws IOException {
             out.write(this.response);
         }
 
         @Override
-        public long getLength() {
+        public long length() {
             return this.response.length;
         }
 

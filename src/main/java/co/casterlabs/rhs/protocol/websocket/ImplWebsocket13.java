@@ -8,6 +8,7 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
+@SuppressWarnings("deprecation")
 @RequiredArgsConstructor
 class ImplWebsocket13 extends Websocket {
     private static final int MAX_PAYLOAD_LENGTH = 64 /* 64mb */ * 1024 * 1024;
@@ -133,20 +134,22 @@ class ImplWebsocket13 extends Websocket {
             while (true) {
                 if (Thread.interrupted()) return;
 
-            // @formatter:off
-            int header1 = this.throwRead();
-            
-            boolean isFinished = (header1 & 0b10000000) != 0;
-            boolean rsv1       = (header1 & 0b01000000) != 0;
-            boolean rsv2       = (header1 & 0b00100000) != 0;
-            boolean rsv3       = (header1 & 0b00010000) != 0;
-            int op             =  header1 & 0b00001111;
-            
-            int header2 = this.throwRead();
-            
-            boolean isMasked   = (header2 & 0b10000000) != 0;
-            int    len7        =  header2 & 0b01111111;
-            // @formatter:on
+                // TODO accelerate reads by using a WorkBuffer.
+
+                // @formatter:off
+                int header1 = this.throwRead();
+                
+                boolean isFinished = (header1 & 0b10000000) != 0;
+                boolean rsv1       = (header1 & 0b01000000) != 0;
+                boolean rsv2       = (header1 & 0b00100000) != 0;
+                boolean rsv3       = (header1 & 0b00010000) != 0;
+                int op             =  header1 & 0b00001111;
+                
+                int header2 = this.throwRead();
+                
+                boolean isMasked   = (header2 & 0b10000000) != 0;
+                int    len7        =  header2 & 0b01111111;
+                // @formatter:on
 
                 if (rsv1 || rsv2 || rsv3) {
                     this.connection.logger.fatal("Reserved bits are set, these are not supported! rsv1=%b rsv2=%b rsv3=%b", rsv1, rsv2, rsv3);

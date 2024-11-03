@@ -3,6 +3,8 @@ package co.casterlabs.rhs;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -11,7 +13,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
@@ -25,6 +26,7 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.util.DropConnectionException;
 import co.casterlabs.rhs.util.HttpException;
+import co.casterlabs.rhs.util.MTUOutputStream;
 import co.casterlabs.rhs.util.OverzealousInputStream;
 import co.casterlabs.rhs.util.TaskExecutor;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
@@ -32,10 +34,6 @@ import lombok.Getter;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
 public class HttpServer {
-    private static final byte[] HTTP_1_1_UPGRADE_REJECT = "HTTP/1.1 400 Unable to Upgrade\r\n\r\n".getBytes(RHSConnection.CHARSET);
-
-    private static final Map<String, String> ZERO_LENGTH_HEADER = Map.of("Content-Length", "0");
-
     private final FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
 
     private final HttpServerBuilder config;
@@ -181,7 +179,7 @@ public class HttpServer {
 
         try {
             OverzealousInputStream input = new OverzealousInputStream(clientSocket.getInputStream());
-            OutputStream output = clientSocket.getOutputStream();
+            OutputStream output = new MTUOutputStream(clientSocket.getOutputStream(), guessedMtu);
 
             clientSocket.setTcpNoDelay(true);
             sessionLogger.trace("Set TCP_NODELAY.");
@@ -196,7 +194,8 @@ public class HttpServer {
                     sessionLogger,
                     input, output,
                     remoteAddress, port(),
-                    tlsVersion
+                    tlsVersion,
+                    this.config
                 );
                 sessionLogger.debug("Handling request...");
 
@@ -206,10 +205,10 @@ public class HttpServer {
                 switch (connection.httpVersion) {
                     case HTTP_1_1: {
                         String connectionHeader = connection.headers.getSingleOrDefault("Connection", "").toLowerCase();
-                        if (connectionHeader.toLowerCase().contains("upgrade")) {
-                            String upgradeTo = connection.headers.getSingle("Upgrade");
-                            if (upgradeTo == null) upgradeTo = "";
-                            protocolName = upgradeTo.toLowerCase();
+                        if (connectionHeader.contains("upgrade")) {
+                            protocolName = connection.headers
+                                .getSingleOrDefault("Upgrade", "<no value>")
+                                .toLowerCase();
                         }
                         break;
                     }
@@ -221,7 +220,7 @@ public class HttpServer {
 
                 Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = this.config.protocols().get(protocolName);
                 if (protocolPair == null) {
-                    connection.output.write(HTTP_1_1_UPGRADE_REJECT);
+                    connection.respond(HttpStatus.adapt(400, "Unable to upgrade to " + protocolName));
                     break;
                 }
 
@@ -230,10 +229,12 @@ public class HttpServer {
 
                 try {
                     Object session = protocol.accept(connection);
-                    Object response = protocol.$handle_cast(session, handler);
-                    if (response == null) throw new DropConnectionException();
+                    if (session == null) return;
 
-                    boolean acceptAnotherRequest = protocol.$process_cast(session, response, connection, this.config);
+                    Object response = protocol.$handle_cast(session, handler);
+                    if (response == null) return;
+
+                    boolean acceptAnotherRequest = protocol.$process_cast(session, response, connection);
                     if (acceptAnotherRequest) {
                         // We're keeping the connection, let the while{} block do it's thing.
                         sessionLogger.debug("Keeping connection alive for subsequent requests.");
@@ -242,7 +243,7 @@ public class HttpServer {
                         return;
                     }
                 } catch (HttpException e) {
-                    connection.respond(e.status, ZERO_LENGTH_HEADER);
+                    connection.respond(e.status);
                     return;
                 }
             }
@@ -309,10 +310,26 @@ public class HttpServer {
     }
 
     private static int guessMtu(Socket clientSocket) {
-        if (clientSocket.getInetAddress().isLoopbackAddress()) {
-            return Short.MAX_VALUE;
+        InetAddress address = clientSocket.getInetAddress();
+
+        if (address.isLoopbackAddress()) {
+            // In practice, loopback MTU is usually ~2^64. Because we use this MTU value to
+            // determine our buffer size, we want to keep it small to avoid memory issues.
+            return 8192; // Arbitrary.
+        }
+
+        if (address instanceof Inet6Address) {
+            /*
+             * ipv6 min. MTU = 1280
+             * ipv6 header size = 40
+             */
+            return 1280 - 40;
         } else {
-            return 1500; // This is a safe default for most of the internet.
+            /*
+             * ipv4 min. MTU = 576 (though usually around 1500)
+             * ipv4 header size = 20-60
+             */
+            return 1500 - 60;
         }
     }
 
