@@ -2,7 +2,6 @@ package co.casterlabs.rhs.protocol;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.time.ZoneOffset;
@@ -18,8 +17,10 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.TLSVersion;
+import co.casterlabs.rhs.protocol.ConnectionUtil.RequestLineInfo;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.HttpException;
+import co.casterlabs.rhs.util.OverzealousInputStream;
 import co.casterlabs.rhs.util.SimpleUri;
 import lombok.RequiredArgsConstructor;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
@@ -33,7 +34,9 @@ public class RHSConnection implements Closeable {
 
     public final FastLogger logger;
 
-    public final InputStream input;
+    public final int guessedMtu;
+
+    public final OverzealousInputStream input; // Cannot be final, has to be swappable with an OverzealousInputStream.
     public final OutputStream output;
     public final String remoteAddress;
     public final int serverPort;
@@ -135,8 +138,8 @@ public class RHSConnection implements Closeable {
     /* Read Utilities   */
     /* ---------------- */
 
-    public CaseInsensitiveMultiMap readHeaders() throws IOException {
-        return ConnectionUtil.readHeaders(this.input);
+    public CaseInsensitiveMultiMap readHeaders() throws IOException, HttpException {
+        return ConnectionUtil.readHeaders(this.input, this.guessedMtu);
     }
 
     /* ---------------- */
@@ -144,29 +147,28 @@ public class RHSConnection implements Closeable {
     /* ---------------- */
 
     public static RHSConnection accept(
+        int guessedMtu,
         FastLogger logger,
-        InputStream input,
+        OverzealousInputStream input,
         OutputStream output,
         String remoteAddress,
         int serverPort,
         @Nullable TLSVersion tlsVersion
     ) throws IOException, HttpException {
-        // Request line
-        int[] $currentLinePosition = new int[1]; // int pointer :D
-        int[] $endOfLinePosition = new int[1]; // int pointer :D
-        byte[] requestLine = ConnectionUtil.readRequestLine(input, $endOfLinePosition);
-
-        String method = ConnectionUtil.readMethod(requestLine, $currentLinePosition, $endOfLinePosition[0]);
-        String uriPath = ConnectionUtil.readURI(requestLine, $currentLinePosition, $endOfLinePosition[0]);
-        HttpVersion version = ConnectionUtil.readVersion(requestLine, $currentLinePosition, $endOfLinePosition[0]);
+        RequestLineInfo requestLine = ConnectionUtil.readRequestLine(input, guessedMtu);
 
         // Headers
-        CaseInsensitiveMultiMap headers = // HTTP/0.9 doesn't have headers.
-            version == HttpVersion.HTTP_0_9 ? CaseInsensitiveMultiMap.EMPTY : ConnectionUtil.readHeaders(input);
+        CaseInsensitiveMultiMap headers;
+        if (requestLine.httpVersion == HttpVersion.HTTP_0_9) {
+            // HTTP/0.9 doesn't have headers.
+            headers = CaseInsensitiveMultiMap.EMPTY;
+        } else {
+            headers = ConnectionUtil.readHeaders(input, guessedMtu);
+        }
 
-        SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", ""), uriPath);
+        SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", ""), requestLine.uriPath);
 
-        return new RHSConnection(logger, input, output, remoteAddress, serverPort, method, uri, headers, version, tlsVersion);
+        return new RHSConnection(logger, guessedMtu, input, output, remoteAddress, serverPort, requestLine.method, uri, headers, requestLine.httpVersion, tlsVersion);
     }
 
     public static String getHttpTime() {

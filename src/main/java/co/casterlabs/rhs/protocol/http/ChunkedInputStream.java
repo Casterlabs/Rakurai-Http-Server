@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import co.casterlabs.rhs.protocol.RHSConnection;
+import co.casterlabs.rhs.util.HttpException;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -74,7 +75,11 @@ class ChunkedInputStream extends InputStream {
         // End of stream.
         if (this.currentChunkSize == 0) {
             this.isEndOfStream = true;
-            this.connection.readHeaders(); // Read the footer/trailers.
+            try { // Read the footer/trailers.
+                this.connection.readHeaders();
+            } catch (HttpException e) {
+                throw new IOException(e);
+            }
         }
     }
 

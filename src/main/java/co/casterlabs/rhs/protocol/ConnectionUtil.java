@@ -7,212 +7,120 @@ import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.HttpException;
+import co.casterlabs.rhs.util.OverzealousInputStream;
+import lombok.AllArgsConstructor;
 
 class ConnectionUtil {
-    // @formatter:off
-    private static final int MAX_METHOD_LENGTH = 512 /*b*/; // Also used for the http version.
-    private static final int MAX_URI_LENGTH    = 256 /*kb*/ * 1024;
-    private static final int MAX_HEADER_LENGTH =  16 /*kb*/ * 1024;
-    // @formatter:on
+    private static final int MAX_REQUEST_LINE_LENGTH = 16 /*kb*/ * 1024;
+    private static final int MAX_HEADER_LENGTH = 16 /*kb*/ * 1024;
 
-    static byte[] readRequestLine(InputStream in, int[] $endOfLinePosition) throws IOException, HttpException {
-        byte[] buffer = new byte[MAX_METHOD_LENGTH + MAX_URI_LENGTH + MAX_METHOD_LENGTH];
+    /* ---------------- */
+    /* Types            */
+    /* ---------------- */
 
-        int bufferWritePos = 0;
-        while (true) {
-            int readCharacter = in.read();
-
-            if (readCharacter == -1) {
-                if (bufferWritePos == 0) {
-                    throw new IOException("Socket closed.");
-                } else {
-                    throw new IOException("Reached end of stream before request line was fully read.");
-                }
-            }
-
-            // Swallow \r
-            if (readCharacter == '\r') {
-                continue;
-            }
-
-            if (readCharacter == '\n') {
-                break; // End of method name, break!
-            }
-
-            buffer[bufferWritePos++] = (byte) readCharacter;
-        }
-
-        if (bufferWritePos == 0) {
-            throw new HttpException(HttpStatus.adapt(400, "Request line was blank"));
-        }
-
-        $endOfLinePosition[0] = bufferWritePos; // Update the pointer.
-        return buffer;
+    @AllArgsConstructor
+    public static class RequestLineInfo {
+        public final String method;
+        public final String uriPath;
+        public final HttpVersion httpVersion;
     }
 
-    static String readMethod(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
-        final int startPos = $currentLinePosition[0];
-        int bufferReadPos = startPos;
-        int length = -1;
-        while (true) {
-            if (bufferReadPos == endOfLinePosition) {
-                length = bufferReadPos - startPos - 1;
-                break;
-            }
+    /* ---------------- */
+    /* Data             */
+    /* ---------------- */
 
-            int readCharacter = buffer[bufferReadPos++];
+    static RequestLineInfo readRequestLine(OverzealousInputStream input, int guessedMtu) throws IOException, HttpException {
+        WorkBuffer buffer = new WorkBuffer(MAX_REQUEST_LINE_LENGTH);
 
-            if (readCharacter == ' ') {
-                length = bufferReadPos - startPos - 1;
+        // Request line
+        int requestLineEnd = ConnectionUtil.readLine(input, buffer, guessedMtu);
 
-                // Consume any trailing spaces.
-                while (true) {
-                    if (buffer[bufferReadPos] == ' ') {
-                        bufferReadPos++;
-                    } else {
-                        break;
-                    }
-                }
-
-                break; // End of method name, break!
-            }
-        }
-
-        if (length <= 0) {
+        String method = ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
+        buffer.marker++; // Consume the ' '
+        if (method.length() == 0) {
             // We will not send an ALLOW header.
             throw new HttpException(HttpStatus.adapt(405, "Method was blank"));
         }
 
-        $currentLinePosition[0] = bufferReadPos; // Update the pointer.
-        return new String(buffer, startPos, length, RHSConnection.CHARSET);
-    }
-
-    static String readURI(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
-        final int startPos = $currentLinePosition[0];
-        int bufferReadPos = startPos;
-        int length = -1;
-        while (true) {
-            if (bufferReadPos == endOfLinePosition) {
-                length = bufferReadPos - startPos - 1;
-                break;
-            }
-
-            int readCharacter = buffer[bufferReadPos++];
-
-            if (readCharacter == ' ') {
-                length = bufferReadPos - startPos - 1;
-
-                // Consume any trailing spaces.
-                while (true) {
-                    if (buffer[bufferReadPos] == ' ') {
-                        bufferReadPos++;
-                    } else {
-                        break;
-                    }
-                }
-
-                break; // End of URI, break!
-            }
-        }
-
-        if (length <= 0) {
+        String uriPath = ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
+        buffer.marker++; // Consume the ' '
+        if (uriPath.length() <= 0) {
             throw new HttpException(HttpStatus.adapt(404, "No URI specified"));
         }
 
-        String uri = new String(buffer, startPos, length, RHSConnection.CHARSET);
-
         // Absolute URLs must be accepted but ignored.
-        if (uri.startsWith("http://")) {
-            uri = uri.substring(uri.indexOf('/', "http://".length()));
-        } else if (uri.startsWith("https://")) {
-            uri = uri.substring(uri.indexOf('/', "https://".length()));
+        if (uriPath.startsWith("http://")) {
+            uriPath = uriPath.substring(uriPath.indexOf('/', "http://".length()));
+        } else if (uriPath.startsWith("https://")) {
+            uriPath = uriPath.substring(uriPath.indexOf('/', "https://".length()));
         }
 
-        $currentLinePosition[0] = bufferReadPos; // Update the pointer.
-        return uri;
-    }
-
-    static HttpVersion readVersion(byte[] buffer, int[] $currentLinePosition, int endOfLinePosition) throws IOException, HttpException {
-        final int startPos = $currentLinePosition[0];
-        String version = new String(buffer, startPos, endOfLinePosition - startPos, RHSConnection.CHARSET);
-
+        HttpVersion version;
         try {
-            return HttpVersion.fromString(version);
+            version = HttpVersion.fromString(ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' '));
+            buffer.marker++; // Consume the ' '
         } catch (IllegalArgumentException e) {
             throw new HttpException(HttpStatus.adapt(400, "Unsupported HTTP version"));
         }
+
+        input.append(buffer.raw, buffer.marker, buffer.limit);
+
+        // Discard 1 bytes to consume the \n at the \n at the end of the request line
+        // (note that readStringUtil has already consumed the \r).
+        input.read();
+
+        return new RequestLineInfo(method, uriPath, version);
     }
 
-    static CaseInsensitiveMultiMap readHeaders(InputStream in) throws IOException {
+    static CaseInsensitiveMultiMap readHeaders(OverzealousInputStream input, int guessedMtu) throws IOException, HttpException {
         CaseInsensitiveMultiMap.Builder headers = new CaseInsensitiveMultiMap.Builder();
+        WorkBuffer buffer = new WorkBuffer(MAX_HEADER_LENGTH);
 
-        byte[] keyBuffer = new byte[MAX_HEADER_LENGTH];
-        int keyBufferWritePos = 0;
+        String currentKey = null;
+        String currentValue = null;
 
-        byte[] valueBuffer = new byte[MAX_HEADER_LENGTH];
-        int valueBufferWritePos = 0;
-
-        int peeked = -1;
-        boolean isCurrentLineBlank = true;
-        boolean isBuildingHeaderKey = true;
         while (true) {
-            int readCharacter = peeked == -1 ? in.read() : peeked;
-            peeked = -1;
+            int lineEnd = readLine(input, buffer, guessedMtu);
 
-            if (readCharacter == -1) {
-                throw new IOException("Reached end of stream before headers were fully read.");
-            }
-
-            // Swallow \r
-            if (readCharacter == '\r') {
-                continue;
-            }
-
-            if (readCharacter == '\n') {
-                if (isCurrentLineBlank) {
-                    break; // A blank line after headers marks the end, so we break out.
+            if (lineEnd - buffer.marker == 0) {
+                // End of headers
+                if (currentKey != null) {
+                    headers.put(currentKey.trim(), currentValue.trim());
                 }
 
-                // A header line that is a whitespace is a continuation of the previous header
-                // line. Example of what we're looking for:
-                /* X-My-Header: some-value-1,\r\n  */
-                /*              some-value-2\r\n   */
-                peeked = in.read();
-                if (peeked == ' ') {
-                    peeked = -1;
-                    continue; // Keep on readin'
+                break;
+            }
+
+            // A header line that starts with a whitespace or tab is a continuation of the
+            // previous header line. Example of what we're looking for:
+            /* X-My-Header: some-value-1,\r\n  */
+            /*              some-value-2\r\n   */
+            if (currentKey != null) {
+                if (buffer.raw[buffer.marker] == ' ' || buffer.raw[buffer.marker] == '\t') {
+                    currentValue += readStringUntil(buffer, lineEnd, '\r');
                 }
-
-                // Alright, we're done with this header.
-                String headerKey = convertBufferToTrimmedString(keyBuffer, keyBufferWritePos);
-                String headerValue = convertBufferToTrimmedString(valueBuffer, valueBufferWritePos);
-                headers.put(headerKey, headerValue);
-
-                // Cleanup / Reset for the next header.
-                isCurrentLineBlank = true;
-                isBuildingHeaderKey = true;
-                keyBufferWritePos = 0;
-                valueBufferWritePos = 0;
-                continue;
+                headers.put(currentKey.trim(), currentValue.trim());
             }
 
-            // Okay, line isn't blank. Let's buffer some data!
-            isCurrentLineBlank = false;
+            currentKey = readStringUntil(buffer, lineEnd, ':');
+            buffer.marker++; // Consume the ':'
 
-            if (readCharacter == ':' && isBuildingHeaderKey) { // Note that colons are allowed in header values.
-                // Time to switch over to building the value.
-                isBuildingHeaderKey = false;
-                continue;
+            if (currentKey.length() == 0) {
+                throw new HttpException(HttpStatus.adapt(400, "Header key was blank"));
             }
 
-            byte b = (byte) (readCharacter & 0xff);
+            currentValue = readStringUntil(buffer, lineEnd, '\r');
+            buffer.marker += 2; // +2 to consume \r\n.
 
-            if (isBuildingHeaderKey) {
-                keyBuffer[keyBufferWritePos++] = b;
-            } else {
-                valueBuffer[valueBufferWritePos++] = b;
+            if (currentValue.length() == 0) {
+                throw new HttpException(HttpStatus.adapt(400, "Header value was blank"));
             }
         }
+
+        // Discard 2 bytes to consume the \r\n at the end of the header block
+        buffer.marker += 2;
+
+        input.append(buffer.raw, buffer.marker, buffer.limit);
 
         return headers.build();
     }
@@ -221,35 +129,51 @@ class ConnectionUtil {
     /* Helpers          */
     /* ---------------- */
 
-    static String convertBufferToTrimmedString(byte[] buffer, int bufferLength) {
-        // Trim the leading.
-        int startPos = 0;
-        for (; startPos < bufferLength; startPos++) {
-            byte ch = buffer[startPos];
-
-            // Skip spaces.
-            if (ch == ' ') {
-                continue;
+    private static int readLine(InputStream in, WorkBuffer buffer, int guessedMtu) throws IOException, HttpException {
+        while (true) {
+            for (int bufferIndex = buffer.marker; bufferIndex < buffer.limit; bufferIndex++) {
+                if (buffer.raw[bufferIndex] == '\r' && buffer.raw[bufferIndex + 1] == '\n') {
+                    return bufferIndex; // End of line, break!
+                }
             }
 
-            break;
-        }
+            buffer.marker = buffer.limit;
 
-        // Trim the trailing.
-        int endPos = bufferLength;
-        for (; endPos > 0; endPos--) {
-            byte ch = buffer[endPos - 1]; // Arrays are zero-indexed, so we sub 1.
-
-            // Skip spaces.
-            if (ch == ' ') {
-                continue;
+            int amountToRead = Math.min(Math.min(buffer.available(), guessedMtu), in.available());
+            if (amountToRead == 0) {
+                amountToRead++;
             }
 
-            break;
+            int read = in.read(buffer.raw, buffer.limit, amountToRead);
+            if (read != -1) {
+                buffer.limit += read;
+            }
+
+            if (buffer.available() == 0) {
+                throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
+            } else if (read == -1) {
+                if (buffer.limit == 0) {
+                    throw new IOException("Socket closed.");
+                } else {
+                    throw new IOException("Reached end of stream before line was fully read.");
+                }
+            }
+        }
+    }
+
+    private static String readStringUntil(WorkBuffer buffer, int limit, char target) throws IOException, HttpException {
+        int start = buffer.marker;
+        int end = start;
+        for (; end < limit; end++) {
+            int readCharacter = buffer.raw[end];
+
+            if (readCharacter == target) {
+                break; // End of string, break!
+            }
         }
 
-        int length = endPos - startPos;
-        return new String(buffer, startPos, length, RHSConnection.CHARSET);
+        buffer.marker = end; // +1 to consume the target.
+        return new String(buffer.raw, start, end - start, RHSConnection.CHARSET);
     }
 
 }
