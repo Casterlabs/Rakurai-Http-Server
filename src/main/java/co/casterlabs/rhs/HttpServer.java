@@ -9,10 +9,12 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLServerSocket;
@@ -26,6 +28,7 @@ import co.casterlabs.rhs.protocol.DropConnectionException;
 import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
+import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.util.TaskExecutor;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 import co.casterlabs.rhs.util.io.MTUOutputStream;
@@ -201,14 +204,17 @@ public class HttpServer {
 
                 sessionLogger.debug("Version: %s, Request headers: %s", connection.httpVersion, connection.headers);
 
-                String protocolName = "http";
+                List<String> toUpgradeTo = Arrays.asList("http");
                 switch (connection.httpVersion) {
                     case HTTP_1_1: {
-                        String connectionHeader = connection.headers.getSingleOrDefault("Connection", "").toLowerCase();
+                        String connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).raw().toLowerCase();
                         if (connectionHeader.contains("upgrade")) {
-                            protocolName = connection.headers
-                                .getSingleOrDefault("Upgrade", "<no value>")
-                                .toLowerCase();
+                            toUpgradeTo = connection.headers
+                                .getSingleOrDefault("Upgrade", HeaderValue.EMPTY)
+                                .delimited(",")
+                                .stream()
+                                .map(HeaderValue::raw)
+                                .collect(Collectors.toList());
                         }
                         break;
                     }
@@ -218,9 +224,16 @@ public class HttpServer {
                         break;
                 }
 
-                Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = this.config.protocols().get(protocolName);
+                Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = null;
+                for (String protocolName : toUpgradeTo) {
+                    protocolPair = this.config.protocols().get(protocolName);
+                    if (protocolPair != null) {
+                        break;
+                    }
+                }
+
                 if (protocolPair == null) {
-                    connection.respond(HttpStatus.adapt(400, "Unable to upgrade to " + protocolName));
+                    connection.respond(HttpStatus.adapt(400, "Unable to upgrade to any of the following protocols: " + toUpgradeTo));
                     break;
                 }
 

@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import lombok.NonNull;
 
-public class Query extends CaseInsensitiveMultiMap {
+public class Query extends CaseInsensitiveMultiMap<String> {
     public final String raw;
 
     private Query(Map<String, List<String>> src, String raw) {

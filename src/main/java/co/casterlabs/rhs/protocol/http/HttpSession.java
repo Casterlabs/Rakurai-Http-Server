@@ -3,11 +3,7 @@ package co.casterlabs.rhs.protocol.http;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +27,7 @@ public class HttpSession {
     private final @Nullable InputStream bodyIn;
 
     // Request headers
-    public CaseInsensitiveMultiMap headers() {
+    public CaseInsensitiveMultiMap<HeaderValue> headers() {
         return this.connection.headers;
     }
 
@@ -52,19 +48,18 @@ public class HttpSession {
 
         public @Nullable String mimeType() {
             if (!this.hasBody()) return null;
-
-            return stripDirectives(HttpSession.this.headers().getSingle("Content-Type"));
+            return HttpSession.this.headers().getSingle("Content-Type").withoutDirectives();
         }
 
         public @Nullable Charset charset() {
             if (!this.hasBody()) return null;
 
-            Map<String, String> directives = parseDirectives(HttpSession.this.headers().getSingle("Content-Type"));
-
-            String charset = directives.get("charset");
-            if (charset == null) return StandardCharsets.UTF_8;
-
-            return Charset.forName(charset.replace('_', '-'));
+            CaseInsensitiveMultiMap<String> directives = HttpSession.this.headers().getSingle("Content-Type").directives();
+            return Charset.forName(
+                directives
+                    .getSingleOrDefault("charset", "UTF-8")
+                    .replace('_', '-')
+            );
         }
 
         public boolean hasBody() {
@@ -159,31 +154,6 @@ public class HttpSession {
             .append("\n    hops=").append(this.hops())
             .append("\n)")
             .toString();
-    }
-
-    public static @Nullable String stripDirectives(@Nullable String str) {
-        if (str == null) return null;
-        if (str.indexOf(';') == -1) return str;
-
-        return str.substring(0, str.indexOf(';'));
-    }
-
-    public static Map<String, String> parseDirectives(@Nullable String str) {
-        if (str == null) return Collections.emptyMap();
-        if (str.indexOf(';') == -1) return Collections.emptyMap();
-
-        str = str.substring(str.indexOf(';') + 1).trim();
-
-        Map<String, String> directives = new HashMap<>();
-        for (String directive : str.split(" ")) {
-            String[] split = directive.split("=");
-            if (split.length == 1) {
-                directives.put(split[0], "");
-            } else {
-                directives.put(split[0], split[1]);
-            }
-        }
-        return directives;
     }
 
 }

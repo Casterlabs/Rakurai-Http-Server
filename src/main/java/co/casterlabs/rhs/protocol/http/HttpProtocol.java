@@ -3,6 +3,7 @@ package co.casterlabs.rhs.protocol.http;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +38,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
                 // Look for a chunked body, otherwise fall through to normal fixed-length
                 // behavior (1.0).
-                if ("chunked".equalsIgnoreCase(connection.headers.getSingle("Transfer-Encoding"))) {
+                if (connection.headers.getSingleOrDefault("Transfer-Encoding", HeaderValue.EMPTY).raw().equalsIgnoreCase("chunked")) {
                     bodyInput = new _ChunkedInputStream(connection);
                     connection.logger.debug("Detected chunked body.");
                     break;
@@ -45,9 +46,9 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
             case HTTP_1_0: {
                 // If there's a Content-Length header then there's a body.
-                String contentLength = connection.headers.getSingle("Content-Length");
+                HeaderValue contentLength = connection.headers.getSingle("Content-Length");
                 if (contentLength != null) {
-                    long lengthL = Long.parseLong(contentLength);
+                    long lengthL = Long.parseLong(contentLength.raw());
                     if (lengthL == 0) break;
 
                     bodyInput = new LimitedInputStream(connection.input, lengthL);
@@ -71,9 +72,11 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
         switch (connection.httpVersion) {
             case HTTP_1_1:
             case HTTP_1_0: {
-                String connectionHeader = connection.headers.getSingleOrDefault("Connection", "").toLowerCase();
-                if (connectionHeader.contains("keep-alive")) {
-                    kaRequested = true;
+                List<HeaderValue> connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).delimited(",");
+                for (HeaderValue v : connectionHeader) {
+                    if (v.raw().equals("keep-alive")) {
+                        kaRequested = true;
+                    }
                 }
                 break;
             }

@@ -145,19 +145,19 @@ public class HttpResponse {
     public static HttpResponse newRangedFileResponse(@NonNull HttpSession session, @NonNull HttpStatus status, @NonNull File file) throws FileNotFoundException, IOException {
         String etag = Integer.toHexString((file.getName() + file.lastModified() + file.length()).hashCode());
 
-        String range = session.headers().getSingle("Range");
+        HeaderValue range = session.headers().getSingle("Range");
         long fileLen = file.length();
         long startFrom = 0;
         long endAt = -1;
 
-        if (range != null && range.startsWith("bytes=")) {
-            range = range.substring("bytes=".length());
-            int minusLocation = range.indexOf('-');
+        if (range != null && range.raw().startsWith("bytes=")) {
+            String byteRange = range.raw().substring("bytes=".length());
+            int minusLocation = byteRange.indexOf('-');
             if (minusLocation > 0) {
                 try {
-                    startFrom = Long.parseLong(range.substring(0, minusLocation));
-                    if (range.length() - minusLocation - 1 > 0) {
-                        endAt = Long.parseLong(range.substring(minusLocation + 1));
+                    startFrom = Long.parseLong(byteRange.substring(0, minusLocation));
+                    if (byteRange.length() - minusLocation - 1 > 0) {
+                        endAt = Long.parseLong(byteRange.substring(minusLocation + 1));
                     }
                 } catch (NumberFormatException ignored) {}
             }

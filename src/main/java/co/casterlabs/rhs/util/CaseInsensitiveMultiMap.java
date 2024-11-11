@@ -9,28 +9,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
-    public static final CaseInsensitiveMultiMap EMPTY = new CaseInsensitiveMultiMap(Collections.emptyMap());
+public class CaseInsensitiveMultiMap<T> implements Map<String, List<T>> {
+    private static final CaseInsensitiveMultiMap<Object> EMPTY = new CaseInsensitiveMultiMap<Object>(Collections.emptyMap());
 
-    private Map<String, List<String>> rawHeaders;
-    private Map<String, List<String>> caseInsensitiveHeaders;
+    private Map<String, List<T>> raw;
+    private Map<String, List<T>> caseInsensitive;
 
-    public CaseInsensitiveMultiMap(Map<String, List<String>> src) {
-        this.rawHeaders = Collections.unmodifiableMap(src);
+    public CaseInsensitiveMultiMap(Map<String, List<T>> src) {
+        this.raw = Collections.unmodifiableMap(src);
 
-        this.caseInsensitiveHeaders = new HashMap<>();
-        for (Map.Entry<String, List<String>> entry : this.rawHeaders.entrySet()) {
-            this.caseInsensitiveHeaders.put(entry.getKey().toLowerCase(), entry.getValue());
+        this.caseInsensitive = new HashMap<>();
+        for (Map.Entry<String, List<T>> entry : this.raw.entrySet()) {
+            this.caseInsensitive.put(entry.getKey().toLowerCase(), entry.getValue());
         }
-        this.caseInsensitiveHeaders = Collections.unmodifiableMap(this.caseInsensitiveHeaders);
+        this.caseInsensitive = Collections.unmodifiableMap(this.caseInsensitive);
     }
 
     /* ---------------- */
     /* Case Insensitive */
     /* ---------------- */
 
-    public String getSingle(String key) {
-        List<String> values = this.get(key);
+    public T getSingle(String key) {
+        List<T> values = this.get(key);
         if (values == null) {
             return null;
         } else {
@@ -38,8 +38,8 @@ public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
         }
     }
 
-    public String getSingleOrDefault(String key, String defaultValue) {
-        List<String> values = this.get(key);
+    public T getSingleOrDefault(String key, T defaultValue) {
+        List<T> values = this.get(key);
         if (values == null) {
             return defaultValue;
         } else {
@@ -48,13 +48,13 @@ public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
     }
 
     @Override
-    public List<String> get(Object key) {
-        return this.caseInsensitiveHeaders.get(String.valueOf(key).toLowerCase());
+    public List<T> get(Object key) {
+        return this.caseInsensitive.get(String.valueOf(key).toLowerCase());
     }
 
     @Override
     public boolean containsKey(Object key) {
-        return this.caseInsensitiveHeaders.containsKey(String.valueOf(key).toLowerCase());
+        return this.caseInsensitive.containsKey(String.valueOf(key).toLowerCase());
     }
 
     /* ---------------- */
@@ -63,32 +63,32 @@ public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
 
     @Override
     public boolean containsValue(Object value) {
-        return this.rawHeaders.containsValue(value);
+        return this.raw.containsValue(value);
     }
 
     @Override
-    public Set<Entry<String, List<String>>> entrySet() {
-        return this.rawHeaders.entrySet();
+    public Set<Entry<String, List<T>>> entrySet() {
+        return this.raw.entrySet();
     }
 
     @Override
     public boolean isEmpty() {
-        return this.rawHeaders.isEmpty();
+        return this.raw.isEmpty();
     }
 
     @Override
     public Set<String> keySet() {
-        return this.rawHeaders.keySet();
+        return this.raw.keySet();
     }
 
     @Override
     public int size() {
-        return this.rawHeaders.size();
+        return this.raw.size();
     }
 
     @Override
-    public Collection<List<String>> values() {
-        return this.rawHeaders.values();
+    public Collection<List<T>> values() {
+        return this.raw.values();
     }
 
     /* ---------------- */
@@ -96,17 +96,17 @@ public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
     /* ---------------- */
 
     @Override
-    public List<String> put(String key, List<String> value) {
+    public List<T> put(String key, List<T> value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void putAll(Map<? extends String, ? extends List<String>> m) {
+    public void putAll(Map<? extends String, ? extends List<T>> m) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<String> remove(Object key) {
+    public List<T> remove(Object key) {
         throw new UnsupportedOperationException();
     }
 
@@ -117,47 +117,48 @@ public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
 
     @Override
     public String toString() {
-        return this.rawHeaders.toString();
+        return this.raw.toString();
     }
 
     /* ---------------- */
     /* Builder          */
     /* ---------------- */
 
-    public static class Builder {
-        private Map<String, List<String>> headers = new HashMap<>();
+    public static class Builder<T> {
+        private Map<String, List<T>> headers = new HashMap<>();
 
-        public Builder put(String key, String value) {
+        public Builder<T> put(String key, T value) {
             this.getValueList(key).add(value);
             return this;
         }
 
-        public Builder putAll(String key, String... values) {
+        @SuppressWarnings("unchecked")
+        public Builder<T> putAll(String key, T... values) {
             this.getValueList(key).addAll(Arrays.asList(values));
             return this;
         }
 
-        public Builder putAll(String key, List<String> values) {
+        public Builder<T> putAll(String key, List<T> values) {
             this.getValueList(key).addAll(values);
             return this;
         }
 
-        public Builder putMap(Map<String, List<String>> map) {
-            for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+        public Builder<T> putMap(Map<String, List<T>> map) {
+            for (Map.Entry<String, List<T>> entry : map.entrySet()) {
                 this.putAll(entry.getKey(), entry.getValue());
             }
             return this;
         }
 
-        public Builder putSingleMap(Map<String, String> map) {
-            for (Map.Entry<String, String> entry : map.entrySet()) {
-                this.putAll(entry.getKey(), entry.getValue());
+        public Builder<T> putSingleMap(Map<String, T> map) {
+            for (Map.Entry<String, T> entry : map.entrySet()) {
+                this.put(entry.getKey(), entry.getValue());
             }
             return this;
         }
 
-        private List<String> getValueList(String key) {
-            List<String> values = this.headers.get(key);
+        private List<T> getValueList(String key) {
+            List<T> values = this.headers.get(key);
             if (values == null) {
                 values = new ArrayList<>();
 
@@ -166,17 +167,26 @@ public class CaseInsensitiveMultiMap implements Map<String, List<String>> {
             return values;
         }
 
-        public CaseInsensitiveMultiMap build() {
-            for (Entry<String, List<String>> entry : this.headers.entrySet()) {
+        public CaseInsensitiveMultiMap<T> build() {
+            for (Entry<String, List<T>> entry : this.headers.entrySet()) {
                 entry.setValue(
                     Collections.unmodifiableList(
                         new ArrayList<>(entry.getValue()) // We convert to ArrayList for faster access.
                     )
                 );
             }
-            return new CaseInsensitiveMultiMap(this.headers);
+            return new CaseInsensitiveMultiMap<T>(this.headers);
         }
 
+    }
+
+    /* ---------------- */
+    /* Util             */
+    /* ---------------- */
+
+    @SuppressWarnings("unchecked")
+    public static <T> CaseInsensitiveMultiMap<T> emptyMap() {
+        return (CaseInsensitiveMultiMap<T>) EMPTY;
     }
 
 }

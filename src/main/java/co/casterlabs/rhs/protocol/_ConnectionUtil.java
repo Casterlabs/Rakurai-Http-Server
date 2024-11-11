@@ -5,6 +5,7 @@ import java.io.InputStream;
 
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
+import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import co.casterlabs.rhs.util.io.WorkBuffer;
@@ -72,8 +73,8 @@ class _ConnectionUtil {
         return new RequestLineInfo(method, uriPath, version);
     }
 
-    static CaseInsensitiveMultiMap readHeaders(OverzealousInputStream input, int guessedMtu) throws IOException, HttpException {
-        CaseInsensitiveMultiMap.Builder headers = new CaseInsensitiveMultiMap.Builder();
+    static CaseInsensitiveMultiMap<HeaderValue> readHeaders(OverzealousInputStream input, int guessedMtu) throws IOException, HttpException {
+        CaseInsensitiveMultiMap.Builder<HeaderValue> headers = new CaseInsensitiveMultiMap.Builder<>();
         WorkBuffer buffer = new WorkBuffer(MAX_HEADER_LENGTH);
 
         String currentKey = null;
@@ -85,7 +86,7 @@ class _ConnectionUtil {
             if (lineEnd - buffer.marker == 0) {
                 // End of headers
                 if (currentKey != null) {
-                    headers.put(currentKey.trim(), currentValue.trim());
+                    headers.put(currentKey.trim(), new HeaderValue(currentValue.trim()));
                 }
 
                 break;
@@ -99,7 +100,7 @@ class _ConnectionUtil {
                 if (buffer.raw[buffer.marker] == ' ' || buffer.raw[buffer.marker] == '\t') {
                     currentValue += readStringUntil(buffer, lineEnd, '\r');
                 }
-                headers.put(currentKey.trim(), currentValue.trim());
+                headers.put(currentKey.trim(), new HeaderValue(currentValue.trim()));
             }
 
             currentKey = readStringUntil(buffer, lineEnd, ':');

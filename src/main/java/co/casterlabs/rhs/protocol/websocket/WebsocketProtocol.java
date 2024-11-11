@@ -6,6 +6,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import co.casterlabs.rhs.protocol.DropConnectionException;
 import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
+import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 
@@ -46,8 +48,9 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
         int wsVersion = connection.headers.getOrDefault("Sec-WebSocket-Version", Collections.emptyList())
             .stream()
-            .map((s) -> s.split(","))
-            .flatMap(Arrays::stream)
+            .map((h) -> h.delimited(","))
+            .flatMap(Collection::stream)
+            .map((h) -> h.raw())
             .map(String::trim)
             .filter((s) -> ACCEPTED_VERSIONS.contains(s))
             .mapToInt(Integer::parseInt)
@@ -60,10 +63,11 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
             return null;
         }
 
-        String wsProtocol = connection.headers.getSingle("Sec-WebSocket-Protocol");
-        if (wsProtocol != null) {
-            wsProtocol = wsProtocol.split(",")[0].trim(); // First.
-        }
+        String wsProtocol = connection.headers.containsKey("Sec-WebSocket-Protocol") ? connection.headers
+            .getSingle("Sec-WebSocket-Protocol")
+            .delimited(",")
+            .get(0) // First value
+            .raw() : null;
 
         connection.logger.trace("Accepted websocket version: %s", wsVersion);
 
@@ -82,12 +86,13 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
             responseHeaders.put("Connection", "Upgrade");
 
             // Generate the key and send it out.
-            String clientKey = connection.headers.getSingle("Sec-WebSocket-Key");
+            HeaderValue clientKey = connection.headers.getSingle("Sec-WebSocket-Key");
             if (clientKey != null) {
                 MessageDigest hash = MessageDigest.getInstance("SHA-1");
                 hash.reset();
                 hash.update(
                     clientKey
+                        .raw()
                         .concat("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
                         .getBytes(StandardCharsets.UTF_8)
                 );
@@ -139,7 +144,9 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
         } catch (InterruptedException ignored) {
             // NOOP
         } finally {
-            websocket.close();
+            if (websocket != null) {
+                websocket.close();
+            }
             listener.onClose(null);
         }
         return false;

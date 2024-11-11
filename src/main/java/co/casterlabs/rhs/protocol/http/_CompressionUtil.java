@@ -44,10 +44,10 @@ class _CompressionUtil {
     private static List<String> getAcceptedEncodings(RHSConnection session) {
         List<String> accepted = new LinkedList<>();
 
-        for (String value : session.headers.getOrDefault("Accept-Encoding", Collections.emptyList())) {
-            String[] split = value.split(", ");
-            for (String encoding : split) {
-                accepted.add(encoding.toLowerCase());
+        for (HeaderValue value : session.headers.getOrDefault("Accept-Encoding", Collections.emptyList())) {
+            for (HeaderValue encoding : value.delimited(",")) {
+                // We ignore q-values.
+                accepted.add(encoding.withoutDirectives().toLowerCase());
             }
         }
 

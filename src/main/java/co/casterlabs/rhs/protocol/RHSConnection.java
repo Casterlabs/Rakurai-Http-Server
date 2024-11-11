@@ -19,6 +19,7 @@ import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.TLSVersion;
 import co.casterlabs.rhs.protocol._ConnectionUtil.RequestLineInfo;
+import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.protocol.http.SimpleUri;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.io.OverzealousInputStream;
@@ -72,7 +73,7 @@ public class RHSConnection implements Closeable {
 
     public final String method;
     public final SimpleUri uri;
-    public final CaseInsensitiveMultiMap headers;
+    public final CaseInsensitiveMultiMap<HeaderValue> headers;
 
     public final HttpVersion httpVersion;
     public final @Nullable TLSVersion tlsVersion; // null, if TLS was not used
@@ -91,7 +92,7 @@ public class RHSConnection implements Closeable {
 
         switch (this.httpVersion) {
             case HTTP_1_1: {
-                String expect = this.headers.getSingle("Expect");
+                String expect = this.headers.getSingleOrDefault("Expect", HeaderValue.EMPTY).raw();
                 if ("100-continue".equalsIgnoreCase(expect)) {
                     this.output.write(HTTP_1_1_CONTINUE_LINE);
                     this.logger.debug("Satisfied 100-continue");
@@ -121,11 +122,11 @@ public class RHSConnection implements Closeable {
         List<String> hops = new LinkedList<>();
 
         // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For
-        List<String> forwardedForHeader = this.headers.get("X-Forwarded-For");
+        List<HeaderValue> forwardedForHeader = this.headers.get("X-Forwarded-For");
         if (forwardedForHeader != null) {
-            for (String list : forwardedForHeader) {
-                for (String hop : list.split(",")) {
-                    hops.add(hop.trim());
+            for (HeaderValue list : forwardedForHeader) {
+                for (HeaderValue hop : list.delimited(",")) {
+                    hops.add(hop.raw());
                 }
             }
         }
@@ -214,7 +215,7 @@ public class RHSConnection implements Closeable {
     /* Read Utilities   */
     /* ---------------- */
 
-    public CaseInsensitiveMultiMap readHeaders() throws IOException, HttpException {
+    public CaseInsensitiveMultiMap<HeaderValue> readHeaders() throws IOException, HttpException {
         return _ConnectionUtil.readHeaders(this.input, this.guessedMtu);
     }
 
@@ -235,15 +236,15 @@ public class RHSConnection implements Closeable {
         RequestLineInfo requestLine = _ConnectionUtil.readRequestLine(input, guessedMtu);
 
         // Headers
-        CaseInsensitiveMultiMap headers;
+        CaseInsensitiveMultiMap<HeaderValue> headers;
         if (requestLine.httpVersion == HttpVersion.HTTP_0_9) {
             // HTTP/0.9 doesn't have headers.
-            headers = CaseInsensitiveMultiMap.EMPTY;
+            headers = CaseInsensitiveMultiMap.emptyMap();
         } else {
             headers = _ConnectionUtil.readHeaders(input, guessedMtu);
         }
 
-        SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", ""), requestLine.uriPath);
+        SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", HeaderValue.EMPTY).raw(), requestLine.uriPath);
 
         return new RHSConnection(logger, guessedMtu, input, output, remoteAddress, serverPort, requestLine.method, uri, headers, requestLine.httpVersion, tlsVersion, config);
     }
