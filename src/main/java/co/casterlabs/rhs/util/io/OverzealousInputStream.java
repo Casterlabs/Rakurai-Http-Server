@@ -35,7 +35,7 @@ public class OverzealousInputStream extends InputStream {
         }
     }
 
-    public void append(byte[] data, int startAt, int endAt) {
+    public synchronized void append(byte[] data, int startAt, int endAt) {
         int newRemaining = endAt - startAt;
         ensureCapacity(newRemaining);
 
@@ -45,7 +45,7 @@ public class OverzealousInputStream extends InputStream {
     }
 
     @Override
-    public int read() throws IOException {
+    public synchronized int read() throws IOException {
         if (this.overageIndex < this.overageEnd) {
             return this.overage[this.overageIndex++];
         }
@@ -54,7 +54,7 @@ public class OverzealousInputStream extends InputStream {
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
+    public synchronized int read(byte[] b, int off, int len) throws IOException {
         if (len == 0) return 0;
 
         if (this.overageIndex < this.overageEnd) {
@@ -68,7 +68,7 @@ public class OverzealousInputStream extends InputStream {
     }
 
     @Override
-    public int available() throws IOException {
+    public synchronized int available() throws IOException {
         if (this.overageIndex < this.overageEnd) {
             return this.overageEnd - this.overageIndex;
         }
