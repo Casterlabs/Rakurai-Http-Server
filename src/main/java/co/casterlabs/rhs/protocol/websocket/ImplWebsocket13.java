@@ -93,22 +93,38 @@ class ImplWebsocket13 extends Websocket {
         int header1 = 0;
         header1 |= (fin ? 1 : 0) << 7;
         header1 |= op;
-        this.connection.output.write(header1);
 
         int header2 = 0;
         header2 |= len7;
 //        header2 |= 0b00000000; // Mask.
-        this.connection.output.write(header2);
 
+        // Nagle's algorithm is disabled (aka no delay mode), so we batch writes to be
+        // more efficient.
         if (len7 == 126) {
-            byte[] lenBytes = PrimitiveMarshall.BIG_ENDIAN.intToBytes(bytes.length);
-            this.connection.output.write(lenBytes[2]);
-            this.connection.output.write(lenBytes[3]); // We only need the first 16 bits.
+            byte[] headerBytes = PrimitiveMarshall.BIG_ENDIAN.intToBytes(bytes.length);
+            headerBytes[0] = (byte) header1;
+            headerBytes[1] = (byte) header2; // We only need the first 16 bits from length, so we can overwrite 1-2 safely.
+
+            this.connection.output.write(headerBytes);
         } else if (len7 == 127) {
             byte[] lenBytes = PrimitiveMarshall.BIG_ENDIAN.longToBytes(bytes.length);
-            this.connection.output.write(lenBytes);
+
+            byte[] headerBytes = new byte[Long.BYTES + 2];
+            headerBytes[0] = (byte) header1;
+            headerBytes[1] = (byte) header2;
+
+            System.arraycopy(lenBytes, 0, headerBytes, 2, Long.BYTES);
+
+            this.connection.output.write(headerBytes);
+        } else {
+            this.connection.output.write(new byte[] {
+                    (byte) header1,
+                    (byte) header2
+            });
         }
 
+        // Note we use an MTUOutputStream here so that we batch writes to be more
+        // efficient when transmitted over the wire.
         this.connection.output.write(bytes);
     }
 
@@ -170,16 +186,9 @@ class ImplWebsocket13 extends Websocket {
                     });
                 } else if (len7 == 127) {
                     // 64bit.
-                    length = PrimitiveMarshall.BIG_ENDIAN.bytesToLong(new byte[] {
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                    });
+                    length = PrimitiveMarshall.BIG_ENDIAN.bytesToLong(
+                        this.connection.input.readNBytes(8)
+                    );
 
                     if (Long.compareUnsigned(length, MAX_PAYLOAD_LENGTH) > 0) {
                         this.connection.logger.fatal("Payload length too big, max %dmb got %d.", MAX_PAYLOAD_LENGTH / 1024 / 1024, length);
@@ -193,23 +202,11 @@ class ImplWebsocket13 extends Websocket {
 
                 byte[] maskingKey = null;
                 if (isMasked) {
-                    maskingKey = new byte[] {
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                            (byte) this.throwRead(),
-                    };
+                    maskingKey = this.connection.input.readNBytes(4);
                 }
 
                 // Read in the whole payload.
-                byte[] payload = new byte[(int) length];
-
-                int read = 0;
-                while (read < payload.length) {
-                    int bytesRead = this.connection.input.read(payload, read, payload.length - read);
-                    if (bytesRead == -1) throw new IOException("Socket closed.");
-                    read += bytesRead;
-                }
+                byte[] payload = this.connection.input.readNBytes((int) length);
 
                 // XOR decrypt.
                 if (isMasked) {
@@ -238,7 +235,7 @@ class ImplWebsocket13 extends Websocket {
                     fragmentedPacket = wholePayload;
 
                     if (!isFinished) {
-                        // Client is not yet finished next packet pls.
+                        // Client is not yet finished, next packet pls.
                         continue;
                     }
 

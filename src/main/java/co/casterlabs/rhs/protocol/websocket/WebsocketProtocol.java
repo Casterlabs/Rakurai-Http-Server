@@ -49,13 +49,13 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
             .map((s) -> s.split(","))
             .flatMap(Arrays::stream)
             .map(String::trim)
-            .filter((s) -> ACCEPTED_VERSIONS.contains(s.trim()))
+            .filter((s) -> ACCEPTED_VERSIONS.contains(s))
             .mapToInt(Integer::parseInt)
             .findFirst()
             .orElse(-1);
 
         if (wsVersion == -1) {
-            connection.logger.warn("Rejected websocket version: %s", wsVersion);
+            connection.logger.warn("Rejected websocket versions: %s", connection.headers.getOrDefault("Sec-WebSocket-Version", Collections.emptyList()));
             connection.respond(StandardHttpStatus.UPGRADE_REQUIRED, WS_VERSION_REJECT_HEADERS);
             return null;
         }
