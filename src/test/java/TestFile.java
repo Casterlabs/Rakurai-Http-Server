@@ -8,9 +8,9 @@ import java.security.cert.CertificateException;
 import co.casterlabs.rhs.HttpServer;
 import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
+import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
-import co.casterlabs.rhs.util.HttpException;
 
 public class TestFile {
 

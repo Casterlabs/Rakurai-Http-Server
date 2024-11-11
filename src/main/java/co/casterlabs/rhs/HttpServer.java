@@ -22,14 +22,14 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.X509ExtendedKeyManager;
 
 import co.casterlabs.commons.functional.tuples.Pair;
+import co.casterlabs.rhs.protocol.DropConnectionException;
+import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
-import co.casterlabs.rhs.util.DropConnectionException;
-import co.casterlabs.rhs.util.HttpException;
-import co.casterlabs.rhs.util.MTUOutputStream;
-import co.casterlabs.rhs.util.OverzealousInputStream;
 import co.casterlabs.rhs.util.TaskExecutor;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
+import co.casterlabs.rhs.util.io.MTUOutputStream;
+import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import lombok.Getter;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 

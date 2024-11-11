@@ -6,12 +6,11 @@ import java.io.InputStream;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
-import co.casterlabs.rhs.util.HttpException;
-import co.casterlabs.rhs.util.OverzealousInputStream;
-import co.casterlabs.rhs.util.WorkBuffer;
+import co.casterlabs.rhs.util.io.OverzealousInputStream;
+import co.casterlabs.rhs.util.io.WorkBuffer;
 import lombok.AllArgsConstructor;
 
-class ConnectionUtil {
+class _ConnectionUtil {
     private static final int MAX_REQUEST_LINE_LENGTH = 16 /*kb*/ * 1024;
     private static final int MAX_HEADER_LENGTH = 16 /*kb*/ * 1024;
 
@@ -34,16 +33,16 @@ class ConnectionUtil {
         WorkBuffer buffer = new WorkBuffer(MAX_REQUEST_LINE_LENGTH);
 
         // Request line
-        int requestLineEnd = ConnectionUtil.readLine(input, buffer, guessedMtu);
+        int requestLineEnd = _ConnectionUtil.readLine(input, buffer, guessedMtu);
 
-        String method = ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
+        String method = _ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
         buffer.marker++; // Consume the ' '
         if (method.length() == 0) {
             // We will not send an ALLOW header.
             throw new HttpException(HttpStatus.adapt(405, "Method was blank"));
         }
 
-        String uriPath = ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
+        String uriPath = _ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
         buffer.marker++; // Consume the ' '
         if (uriPath.length() <= 0) {
             throw new HttpException(HttpStatus.adapt(404, "No URI specified"));
@@ -58,7 +57,7 @@ class ConnectionUtil {
 
         HttpVersion version;
         try {
-            version = HttpVersion.fromString(ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' '));
+            version = HttpVersion.fromString(_ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' '));
             buffer.marker++; // Consume the ' '
         } catch (IllegalArgumentException e) {
             throw new HttpException(HttpStatus.adapt(400, "Unsupported HTTP version"));

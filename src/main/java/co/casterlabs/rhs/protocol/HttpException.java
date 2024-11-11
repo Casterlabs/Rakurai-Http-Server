@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.util;
+package co.casterlabs.rhs.protocol;
 
 import co.casterlabs.rhs.HttpStatus;
 

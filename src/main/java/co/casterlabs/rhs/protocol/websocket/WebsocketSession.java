@@ -1,8 +1,5 @@
 package co.casterlabs.rhs.protocol.websocket;
 
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.rhs.protocol.RHSConnection;
@@ -26,9 +23,10 @@ public class WebsocketSession extends HttpSession {
         return this.websocketProtocol;
     }
 
+    @Deprecated
     @Override
-    public InputStream getRequestBodyStream() throws IOException {
-        throw new UnsupportedOperationException("Websockets do not support request bodies.");
+    public HttpSessionBody body() {
+        throw new UnsupportedOperationException("Websockets do not contain request bodies.");
     }
 
 }

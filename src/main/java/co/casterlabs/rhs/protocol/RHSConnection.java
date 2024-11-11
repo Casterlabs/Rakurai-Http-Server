@@ -18,11 +18,10 @@ import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.TLSVersion;
-import co.casterlabs.rhs.protocol.ConnectionUtil.RequestLineInfo;
+import co.casterlabs.rhs.protocol._ConnectionUtil.RequestLineInfo;
+import co.casterlabs.rhs.protocol.http.SimpleUri;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
-import co.casterlabs.rhs.util.HttpException;
-import co.casterlabs.rhs.util.OverzealousInputStream;
-import co.casterlabs.rhs.util.SimpleUri;
+import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import lombok.RequiredArgsConstructor;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 import xyz.e3ndr.fastloggingframework.logging.LogLevel;
@@ -216,7 +215,7 @@ public class RHSConnection implements Closeable {
     /* ---------------- */
 
     public CaseInsensitiveMultiMap readHeaders() throws IOException, HttpException {
-        return ConnectionUtil.readHeaders(this.input, this.guessedMtu);
+        return _ConnectionUtil.readHeaders(this.input, this.guessedMtu);
     }
 
     /* ---------------- */
@@ -233,7 +232,7 @@ public class RHSConnection implements Closeable {
         @Nullable TLSVersion tlsVersion,
         HttpServerBuilder config
     ) throws IOException, HttpException {
-        RequestLineInfo requestLine = ConnectionUtil.readRequestLine(input, guessedMtu);
+        RequestLineInfo requestLine = _ConnectionUtil.readRequestLine(input, guessedMtu);
 
         // Headers
         CaseInsensitiveMultiMap headers;
@@ -241,7 +240,7 @@ public class RHSConnection implements Closeable {
             // HTTP/0.9 doesn't have headers.
             headers = CaseInsensitiveMultiMap.EMPTY;
         } else {
-            headers = ConnectionUtil.readHeaders(input, guessedMtu);
+            headers = _ConnectionUtil.readHeaders(input, guessedMtu);
         }
 
         SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", ""), requestLine.uriPath);

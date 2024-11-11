@@ -20,7 +20,7 @@ import co.casterlabs.rakurai.json.element.JsonElement;
 import co.casterlabs.rakurai.json.element.JsonObject;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
-import co.casterlabs.rhs.util.DropConnectionException;
+import co.casterlabs.rhs.protocol.DropConnectionException;
 import co.casterlabs.rhs.util.MimeTypes;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

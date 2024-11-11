@@ -16,11 +16,11 @@ import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
+import co.casterlabs.rhs.protocol.DropConnectionException;
+import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
-import co.casterlabs.rhs.util.DropConnectionException;
-import co.casterlabs.rhs.util.HttpException;
 import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
 
 public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketListener, WebsocketHandler> {
@@ -108,7 +108,7 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
             switch (session.websocketVersion()) {
                 case 13:
-                    websocket = new ImplWebsocket13(session, listener, connection);
+                    websocket = new _ImplWebsocket13(session, listener, connection);
                     break;
 
                 default:

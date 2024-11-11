@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.util;
+package co.casterlabs.rhs.util.io;
 
 import java.io.IOException;
 import java.io.InputStream;

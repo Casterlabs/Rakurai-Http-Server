@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 
 @SuppressWarnings("deprecation")
 @RequiredArgsConstructor
-class ImplWebsocket13 extends Websocket {
+class _ImplWebsocket13 extends Websocket {
     private static final int MAX_PAYLOAD_LENGTH = 64 /* 64mb */ * 1024 * 1024;
 
     private final WebsocketSession session;

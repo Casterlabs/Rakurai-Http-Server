@@ -13,16 +13,14 @@ import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.commons.io.streams.StreamUtil;
 import co.casterlabs.rakurai.json.Rson;
-import co.casterlabs.rakurai.json.element.JsonArray;
+import co.casterlabs.rakurai.json.deserialization.JsonParser;
 import co.casterlabs.rakurai.json.element.JsonElement;
-import co.casterlabs.rakurai.json.element.JsonObject;
 import co.casterlabs.rakurai.json.serialization.JsonParseException;
 import co.casterlabs.rhs.HttpMethod;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.TLSVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
-import co.casterlabs.rhs.util.SimpleUri;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +29,6 @@ import lombok.RequiredArgsConstructor;
 public class HttpSession {
     protected final RHSConnection connection;
     private final @Nullable InputStream bodyIn;
-
-    private byte[] cachedBody;
 
     // Request headers
     public CaseInsensitiveMultiMap headers() {
@@ -45,95 +41,77 @@ public class HttpSession {
     }
 
     // Request body
-    public final @Nullable String getBodyMimeType() {
-        return stripDirectives(this.headers().getSingle("Content-Type"));
+    private final HttpSessionBody body = new HttpSessionBody();
+
+    public HttpSessionBody body() {
+        return this.body;
     }
 
-    public final Charset getBodyCharset() {
-        Map<String, String> directives = parseDirectives(this.headers().getSingle("Content-Type"));
+    public class HttpSessionBody {
+        private byte[] cachedBody;
 
-        String charset = directives.get("charset");
-        if (charset == null) return StandardCharsets.UTF_8;
+        public @Nullable String mimeType() {
+            if (!this.hasBody()) return null;
 
-        return Charset.forName(charset.replace('_', '-'));
-    }
-
-    public boolean hasBody() {
-        return this.bodyIn != null;
-    }
-
-    public final @Nullable String getRequestBodyString() throws IOException {
-        if (this.hasBody()) {
-            return new String(this.getRequestBodyBytes(), this.getBodyCharset());
-        } else {
-            return null;
+            return stripDirectives(HttpSession.this.headers().getSingle("Content-Type"));
         }
-    }
 
-    public final @NonNull JsonElement getRequestBodyJson(@Nullable Rson rson) throws IOException, JsonParseException {
-        if (this.hasBody()) {
-            if (rson == null) {
-                rson = Rson.DEFAULT;
+        public @Nullable Charset charset() {
+            if (!this.hasBody()) return null;
+
+            Map<String, String> directives = parseDirectives(HttpSession.this.headers().getSingle("Content-Type"));
+
+            String charset = directives.get("charset");
+            if (charset == null) return StandardCharsets.UTF_8;
+
+            return Charset.forName(charset.replace('_', '-'));
+        }
+
+        public boolean hasBody() {
+            return HttpSession.this.bodyIn != null;
+        }
+
+        public @Nullable String string() throws IOException {
+            return new String(this.bytes(), this.charset());
+        }
+
+        public @NonNull JsonElement json() throws IOException, JsonParseException {
+            String body = this.string();
+            return JsonParser.parseString(body, Rson.DEFAULT.getConfig());
+        }
+
+        public @Nullable byte[] bytes() throws IOException {
+            if (this.cachedBody == null) {
+                this.cachedBody = StreamUtil.toBytes(this.stream());
             }
 
-            if ("application/json".equals(this.getBodyMimeType())) {
-                String body = new String(this.getRequestBodyBytes(), this.getBodyCharset());
+            return this.cachedBody;
+        }
 
-                switch (body.charAt(0)) {
-                    case '{': {
-                        return rson.fromJson(body, JsonObject.class);
-                    }
-
-                    case '[': {
-                        return rson.fromJson(body, JsonArray.class);
-                    }
-
-                    default: {
-                        throw new JsonParseException("Request body must be either a JsonObject or JsonArray.");
-                    }
-                }
-            } else {
-                throw new JsonParseException("Request body must have a Content-Type of application/json.");
+        /**
+         * @implNote Reading from this stream will consume the request body, preventing
+         *           you from using getRequestBodyBytes() and similar methods.
+         */
+        @SuppressWarnings("deprecation")
+        public @Nullable InputStream stream() throws IOException {
+            if (!this.hasBody()) {
+                throw new IllegalStateException("Request body is not present. Call hasBody() first.");
             }
-        } else {
-            return null;
-        }
-    }
 
-    public @Nullable byte[] getRequestBodyBytes() throws IOException {
-        if (!this.hasBody()) return null;
-
-        if (this.cachedBody == null) {
-            this.cachedBody = StreamUtil.toBytes(this.getRequestBodyStream());
+            HttpSession.this.connection.satisfyExpectations();
+            return HttpSession.this.bodyIn;
         }
 
-        return this.cachedBody;
-    }
+        public Query urlEncoded() throws IOException {
+            String mime = this.mimeType();
+            if (!mime.equals("application/x-www-form-urlencoded")) {
+                throw new IllegalStateException("Unsupported form body type: " + mime);
+            }
 
-    /**
-     * @implNote Reading from this stream will consume the request body, preventing
-     *           you from using getRequestBodyBytes() and similar methods.
-     */
-    @SuppressWarnings("deprecation")
-    public @Nullable InputStream getRequestBodyStream() throws IOException {
-        this.connection.satisfyExpectations();
-        return this.bodyIn;
-    }
+            return Query.from(this.string());
+        }
 
-//    /**
-//     * @return either a form body (multipart) or a map (url encoded).
-//     */
-//    public Either<MultipartForm, URLEncodedForm> parseFormBody() throws IOException {
-//        String mime = this.getBodyMimeType();
-//
-//        if (mime.equals("application/x-www-form-urlencoded")) {
-//            return URLEncodedForm.parse(this);
-//        } else if (mime.startsWith("multipart/form-data;boundary=")) {
-//            throw new IOException("Multipart form data is unsupported at this time.");
-//        } else {
-//            throw new IOException("Unsupported form body type: " + mime);
-//        }
-//    }
+    }
 
     // Server info
     public int serverPort() {

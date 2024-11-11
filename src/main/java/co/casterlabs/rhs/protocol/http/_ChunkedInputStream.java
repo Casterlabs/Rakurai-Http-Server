@@ -4,12 +4,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
-import co.casterlabs.rhs.util.HttpException;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-class ChunkedInputStream extends InputStream {
+class _ChunkedInputStream extends InputStream {
     private final RHSConnection connection;
     private boolean isEndOfStream = false;
     private long currentChunkSize = 0;
@@ -28,6 +28,8 @@ class ChunkedInputStream extends InputStream {
 
     private synchronized void startChunkReadIfNeeded() throws IOException {
         if ((this.currentChunkSize > 0) || this.isEndOfStream) return;
+
+        // TODO Speed up using WorkBuffer
 
         // Reset.
         this.bufferWritePos = 0;

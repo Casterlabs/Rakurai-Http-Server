@@ -13,7 +13,7 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 
-class CompressionUtil {
+class _CompressionUtil {
     private static final int COMPRESSION_THRESHOLD = 100 /*kb*/ * 1024; // Arbitrary
 
     private static boolean shouldCompress(@Nullable String mimeType) {

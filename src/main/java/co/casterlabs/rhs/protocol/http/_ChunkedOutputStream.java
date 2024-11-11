@@ -7,7 +7,7 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-class ChunkedOutputStream extends OutputStream {
+class _ChunkedOutputStream extends OutputStream {
     private static final byte[] END = "0\r\n\r\n".getBytes(RHSConnection.CHARSET);
     private static final byte[] NEWLINE = "\r\n".getBytes(RHSConnection.CHARSET);
 

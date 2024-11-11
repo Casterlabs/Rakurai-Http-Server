@@ -10,12 +10,12 @@ import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
+import co.casterlabs.rhs.protocol.DropConnectionException;
+import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
-import co.casterlabs.rhs.util.DropConnectionException;
-import co.casterlabs.rhs.util.HttpException;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
 
@@ -38,7 +38,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 // Look for a chunked body, otherwise fall through to normal fixed-length
                 // behavior (1.0).
                 if ("chunked".equalsIgnoreCase(connection.headers.getSingle("Transfer-Encoding"))) {
-                    bodyInput = new ChunkedInputStream(connection);
+                    bodyInput = new _ChunkedInputStream(connection);
                     connection.logger.debug("Detected chunked body.");
                     break;
                 }
@@ -82,9 +82,9 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 break;
         }
 
-        if (kaRequested && session.hasBody()) {
+        if (kaRequested && session.body().hasBody()) {
             // Eat any remaining body bytes.
-            InputStream bodyStream = session.getRequestBodyStream();
+            InputStream bodyStream = session.body().stream();
             while (bodyStream.available() != -1) {
                 bodyStream.skip(Long.MAX_VALUE); // Skip as much as possible.
             }
@@ -101,7 +101,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 responseMode = ResponseMode.FIXED_LENGTH;
             }
         } else {
-            contentEncoding = CompressionUtil.pickEncoding(connection, response);
+            contentEncoding = _CompressionUtil.pickEncoding(connection, response);
 
             if (length == -1 || contentEncoding != null) {
                 // Compressed responses should always be chunked.
@@ -133,13 +133,13 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             OutputStream out = null;
             try (ResponseContent responseContent = response.content) {
                 if (responseMode == ResponseMode.CHUNKED) {
-                    out = new ChunkedOutputStream(connection.output);
+                    out = new _ChunkedOutputStream(connection.output);
                 } else {
                     out = new NonCloseableOutputStream(connection.output);
                 }
 
                 // Write out the response, defaulting to non-encoded responses.
-                CompressionUtil.writeWithEncoding(contentEncoding, connection.guessedMtu, out, responseContent);
+                _CompressionUtil.writeWithEncoding(contentEncoding, connection.guessedMtu, out, responseContent);
             } finally {
                 // Chunked output streams have special close implementations that don't actually
                 // close the underlying connection, they just signal that this is the end of the
