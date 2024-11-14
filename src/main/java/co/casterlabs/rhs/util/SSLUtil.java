@@ -11,7 +11,7 @@ public class SSLUtil {
         boolean replacedParameter = false;
 
         for (int i = 0; i != disabledAlgorithms.length; i++) {
-            if (disabledAlgorithms[i].startsWith("DH keySize")) {
+            if (disabledAlgorithms[i].contains("DH keySize")) {
                 replacedParameter = true;
 
                 disabledAlgorithms[i] = "DH keySize < " + DHSize;
