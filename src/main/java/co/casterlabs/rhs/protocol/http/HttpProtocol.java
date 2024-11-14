@@ -3,7 +3,8 @@ package co.casterlabs.rhs.protocol.http;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -11,7 +12,6 @@ import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
-import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.protocol.DropConnectionException;
 import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
@@ -72,18 +72,30 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             boolean kaRequested = false;
 
             switch (connection.httpVersion) {
-                case HTTP_1_1:
-                case HTTP_1_0: {
-                    List<HeaderValue> connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).delimited(",");
-                    for (HeaderValue v : connectionHeader) {
-                        if (v.raw().equals("keep-alive")) {
-                            kaRequested = true;
-                        }
-                    }
-                    break;
-                }
-
                 case HTTP_0_9:
+                    break;
+
+                case HTTP_1_0:
+                    kaRequested = connection.headers.getOrDefault("Connection", Collections.emptyList())
+                        .stream()
+                        .map((h) -> h.delimited(","))
+                        .flatMap(Collection::stream)
+                        .map((h) -> h.raw())
+                        .filter((s) -> s.equalsIgnoreCase("keep-alive"))
+                        .findAny()
+                        .isPresent();
+                    break;
+
+                case HTTP_1_1:
+                    // Keep Alive is default in HTTP/1.1. So we look for a connection close instead.
+                    kaRequested = connection.headers.getOrDefault("Connection", Collections.emptyList())
+                        .stream()
+                        .map((h) -> h.delimited(","))
+                        .flatMap(Collection::stream)
+                        .map((h) -> h.raw())
+                        .filter((s) -> s.equalsIgnoreCase("close"))
+                        .findAny()
+                        .isEmpty();
                     break;
             }
 
@@ -98,38 +110,46 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             long length = response.content.length();
             String contentEncoding = null;
             ResponseMode responseMode = null;
-
-            if (connection.httpVersion == HttpVersion.HTTP_1_0) {
-                if (length == -1) {
+            switch (connection.httpVersion) {
+                case HTTP_0_9:
                     responseMode = ResponseMode.CLOSE_ON_COMPLETE;
-                } else {
-                    responseMode = ResponseMode.FIXED_LENGTH;
-                }
-            } else {
-                contentEncoding = _CompressionUtil.pickEncoding(connection, response);
+                    break;
 
-                if (length == -1 || contentEncoding != null) {
-                    // Compressed responses should always be chunked.
-                    response.header("Transfer-Encoding", "chunked");
-                    responseMode = ResponseMode.CHUNKED;
-                } else {
-                    responseMode = ResponseMode.FIXED_LENGTH;
-                    response.header("Content-Length", String.valueOf(length));
-                }
+                case HTTP_1_0:
+                    if (length == -1) {
+                        responseMode = ResponseMode.CLOSE_ON_COMPLETE;
+                    } else {
+                        responseMode = ResponseMode.FIXED_LENGTH;
+                        response.header("Content-Length", String.valueOf(length));
+                    }
+                    break;
 
-                if (kaRequested) {
-                    // Add the keepalive headers.
-                    response.header("Connection", "keep-alive");
-                    response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
-                } else {
-                    // Let the client know that we will be closing the socket.
-                    response.header("Connection", "close");
-                }
+                case HTTP_1_1:
+                    contentEncoding = _CompressionUtil.pickEncoding(connection, response);
 
-                if (contentEncoding != null) {
-                    response.header("Content-Encoding", contentEncoding);
-                    response.header("Vary", "Accept-Encoding");
-                }
+                    if (length == -1 || contentEncoding != null) {
+                        // Compressed responses should always be chunked.
+                        response.header("Transfer-Encoding", "chunked");
+                        responseMode = ResponseMode.CHUNKED;
+                    } else {
+                        responseMode = ResponseMode.FIXED_LENGTH;
+                        response.header("Content-Length", String.valueOf(length));
+                    }
+
+                    if (kaRequested) {
+                        // Add the keepalive headers.
+                        response.header("Connection", "keep-alive");
+                        response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                    } else {
+                        // Let the client know that we will be closing the socket.
+                        response.header("Connection", "close");
+                    }
+
+                    if (contentEncoding != null) {
+                        response.header("Content-Encoding", contentEncoding);
+                        response.header("Vary", "Accept-Encoding");
+                    }
+                    break;
             }
 
             switch (connection.method) {
