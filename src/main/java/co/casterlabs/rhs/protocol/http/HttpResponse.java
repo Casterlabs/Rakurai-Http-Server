@@ -8,8 +8,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -27,6 +30,19 @@ import lombok.Getter;
 import lombok.NonNull;
 
 public class HttpResponse {
+    private static final Set<String> DISALLOWED_RESPONSE_HEADERS = Arrays.asList(
+        "Connection",
+        "Content-Length",
+        "Content-Length",
+        "Content-Encoding",
+        "Keep-Alive",
+        "Sever",
+        "Transfer-Encoding"
+    )
+        .stream()
+        .map((s) -> s.toLowerCase())
+        .collect(Collectors.toSet());
+
     public static final byte[] EMPTY_BODY = new byte[0];
 
     /**
@@ -56,12 +72,19 @@ public class HttpResponse {
     }
 
     public HttpResponse header(@NonNull String key, @NonNull String value) {
+        if (key.charAt(0) == ':' || // HTTP/2 pseudo-headers.
+            DISALLOWED_RESPONSE_HEADERS.contains(key.toLowerCase())) {
+            return this; // DO NOT ADD.
+        }
+
         this.headers.put(key, value);
         return this;
     }
 
     public HttpResponse putAllHeaders(@NonNull Map<String, String> headers) {
-        this.headers.putAll(headers);
+        for (Map.Entry<String, String> e : headers.entrySet()) {
+            this.header(e.getKey(), e.getValue());
+        }
         return this;
     }
 

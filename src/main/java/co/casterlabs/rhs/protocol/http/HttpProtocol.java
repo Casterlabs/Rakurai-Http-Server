@@ -120,11 +120,11 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                         responseMode = ResponseMode.CLOSE_ON_COMPLETE;
                     } else {
                         responseMode = ResponseMode.FIXED_LENGTH;
-                        response.header("Content-Length", String.valueOf(length));
+                        response.headers.put("Content-Length", String.valueOf(length));
 
                         if (kaRequested) {
-                            response.header("Connection", "keep-alive");
-                            response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                            response.headers.put("Connection", "keep-alive");
+                            response.headers.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
                         }
                     }
                     break;
@@ -134,30 +134,30 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
                     if (length == -1 || contentEncoding != null) {
                         // Compressed responses should always be chunked.
-                        response.header("Transfer-Encoding", "chunked");
+                        response.headers.put("Transfer-Encoding", "chunked");
                         responseMode = ResponseMode.CHUNKED;
                     } else {
                         responseMode = ResponseMode.FIXED_LENGTH;
-                        response.header("Content-Length", String.valueOf(length));
+                        response.headers.put("Content-Length", String.valueOf(length));
                     }
 
                     if (kaRequested) {
                         // Add the keepalive headers.
-                        response.header("Connection", "keep-alive");
-                        response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                        response.headers.put("Connection", "keep-alive");
+                        response.headers.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
                     } else {
                         // Let the client know that we will be closing the socket.
-                        response.header("Connection", "close");
+                        response.headers.put("Connection", "close");
                     }
 
                     if (contentEncoding != null) {
-                        response.header("Content-Encoding", contentEncoding);
+                        response.headers.put("Content-Encoding", contentEncoding);
 
                         if (response.headers.containsKey("Vary")) {
                             // We need to append instead.
-                            response.header("Vary", String.join(", ", response.headers.get("Vary"), "Accept-Encoding"));
+                            response.headers.put("Vary", String.join(", ", response.headers.get("Vary"), "Accept-Encoding"));
                         } else {
-                            response.header("Vary", "Accept-Encoding");
+                            response.headers.put("Vary", "Accept-Encoding");
                         }
                     }
                     break;
