@@ -249,10 +249,10 @@ public class HttpServer {
                     Object handler = protocolPair.b();
 
                     Object session = protocol.accept(connection);
-                    if (session == null) return;
+                    if (session == null) throw new DropConnectionException();
 
                     Object response = protocol.$handle_cast(session, handler);
-                    if (response == null) return;
+                    if (response == null) throw new DropConnectionException();
 
                     boolean acceptAnotherRequest = protocol.$process_cast(session, response, connection);
                     if (acceptAnotherRequest) {
