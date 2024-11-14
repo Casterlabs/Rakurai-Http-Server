@@ -27,6 +27,9 @@ public interface WebsocketListener {
     /**
      * This is called in a {@link TaskType#LIGHT_IO} context. This method blocks
      * connection cleanup.
+     * 
+     * @implNote websocket MAY be `null` IF the connection failed early in the
+     *           process.
      */
     default void onClose(Websocket websocket) {}
 
