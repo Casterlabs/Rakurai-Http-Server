@@ -10,12 +10,12 @@ import lombok.NonNull;
 public abstract class Websocket implements Closeable {
     private Object attachment;
 
-    public void setAttachment(Object attachment) {
+    public void attachment(Object attachment) {
         this.attachment = attachment;
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getAttachment() {
+    public <T> T attachment() {
         return (T) this.attachment;
     }
 
