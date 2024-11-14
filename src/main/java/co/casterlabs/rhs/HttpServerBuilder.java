@@ -14,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.commons.functional.tuples.Pair;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.util.TaskExecutor;
+import co.casterlabs.rhs.util.TaskExecutor.Task;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
@@ -55,7 +56,24 @@ public class HttpServerBuilder {
                 Thread t = new Thread(r);
                 t.setName(u + " THREAD");
                 t.start();
-                return t;
+                return new Task() {
+                    @Override
+                    public void interrupt() {
+                        t.interrupt();
+                    }
+
+                    @Override
+                    public void waitFor() throws InterruptedException {
+                        if (this.isAlive()) {
+                            t.join();
+                        }
+                    }
+
+                    @Override
+                    public boolean isAlive() {
+                        return t.isAlive();
+                    }
+                };
             }
         );
     }

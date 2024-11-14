@@ -30,7 +30,7 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.util.TaskExecutor;
-import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
+import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 import co.casterlabs.rhs.util.io.MTUOutputStream;
 import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import lombok.Getter;
@@ -161,7 +161,7 @@ public class HttpServer {
             this.connectedClients.add(clientSocket);
 
             int guessedMtu = guessMtu(clientSocket);
-            this.executor.execute(() -> this.handle(clientSocket, guessedMtu), TaskUrgency.DELAYABLE);
+            this.executor.execute(() -> this.handle(clientSocket, guessedMtu), TaskType.LIGHT_IO);
         } catch (Throwable t) {
             this.logger.severe("An error occurred whilst accepting a new connection:\n%s", t);
         }
@@ -170,6 +170,12 @@ public class HttpServer {
     @SuppressWarnings("deprecation")
     private void handle(Socket clientSocket, int guessedMtu) {
         String remoteAddress = formatAddress(clientSocket);
+
+        if (clientSocket.isClosed()) {
+            this.logger.debug("%s was closed before we could handle it. Oh well.", remoteAddress);
+            return;
+        }
+
         this.logger.debug("New connection from %s", remoteAddress);
 
         FastLogger sessionLogger = this.logger.createChild("Connection: " + remoteAddress);

@@ -17,14 +17,7 @@ class _ImplWebsocket13 extends Websocket {
     private final WebsocketListener listener;
     private final RHSConnection connection;
 
-    private static class WebsocketOpCode {
-        private static final int CONTINUATION = 0;
-        private static final int TEXT = 1;
-        private static final int BINARY = 2;
-        private static final int CLOSE = 8;
-        private static final int PING = 9;
-        private static final int PONG = 10;
-    }
+    private boolean isClosed = false;
 
     @Override
     public WebsocketSession session() {
@@ -44,11 +37,23 @@ class _ImplWebsocket13 extends Websocket {
 
     @Override
     public void close() {
+        if (this.isClosed) return;
+        this.isClosed = true;
+
         try {
             this.sendFrame(true, WebsocketOpCode.CLOSE, new byte[0]);
         } catch (IOException e) {
             // Ignored.
         }
+    }
+
+    private static class WebsocketOpCode {
+        private static final int CONTINUATION = 0;
+        private static final int TEXT = 1;
+        private static final int BINARY = 2;
+        private static final int CLOSE = 8;
+        private static final int PING = 9;
+        private static final int PONG = 10;
     }
 
     private synchronized void sendOrFragment(int op, byte[] bytes) throws IOException {
@@ -143,13 +148,18 @@ class _ImplWebsocket13 extends Websocket {
     @Override
     void process() {
         try {
+            this.listener.onOpen(this);
+        } catch (Throwable t) {
+            this.connection.logger.warn("An exception occurred whilst opening listener:\n%s", t);
+            return;
+        }
+
+        try {
             // For continuation frames.
             int fragmentedOpCode = 0;
             byte[] fragmentedPacket = new byte[0];
 
-            while (true) {
-                if (Thread.interrupted()) return;
-
+            while (!Thread.interrupted() && !this.isClosed) {
                 // TODO accelerate reads by using a WorkBuffer.
 
                 // @formatter:off
@@ -264,8 +274,7 @@ class _ImplWebsocket13 extends Websocket {
                         try {
                             this.connection.logger.trace("Got frame: BINARY.");
                             this.connection.logger.debug("Binary frame: len=%d", payload.length);
-                            byte[] $payload = payload;
-                            this.listener.onBinary(this, $payload);
+                            this.listener.onBinary(this, payload);
                         } catch (Throwable t) {
                             this.connection.logger.severe("Listener produced exception:\n%s", t);
                         }

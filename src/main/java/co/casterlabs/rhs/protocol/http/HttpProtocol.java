@@ -17,6 +17,7 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
+import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
 
@@ -167,6 +168,9 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
     public static interface HttpProtoHandler {
 
+        /**
+         * This is called in a {@link TaskType#LIGHT_IO} context.
+         */
         public HttpResponse handle(HttpSession session) throws HttpException, DropConnectionException;
 
     }

@@ -23,10 +23,11 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
-import co.casterlabs.rhs.util.TaskExecutor.TaskUrgency;
+import co.casterlabs.rhs.util.TaskExecutor.Task;
+import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 
 public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketListener, WebsocketHandler> {
-    public static final long READ_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
+    private static final long PING_INTERVAL = TimeUnit.SECONDS.toMillis(5);
 
     private static final HashSet<String> ACCEPTED_VERSIONS = new HashSet<>(Arrays.asList("13"));
 
@@ -123,20 +124,20 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
             final Websocket $websocket_pointer = websocket;
 
-            final Thread readThread = connection.config.taskExecutor().execute($websocket_pointer::process, TaskUrgency.IMMEDIATE);
-            final Thread pingThread = connection.config.taskExecutor().execute(() -> {
+            final Task readTask = connection.config.taskExecutor().execute($websocket_pointer::process, TaskType.HEAVY_IO); // This calls onOpen().
+            final Task pingTask = connection.config.taskExecutor().execute(() -> {
                 try {
                     while (true) {
                         $websocket_pointer.ping();
-                        Thread.sleep(READ_TIMEOUT / 2);
+                        Thread.sleep(PING_INTERVAL);
                     }
                 } catch (Exception ignored) {
-                    readThread.interrupt();
+                    readTask.interrupt();
                 }
-            }, TaskUrgency.IMMEDIATE);
+            }, TaskType.MEDIUM_IO);
 
-            readThread.join();
-            pingThread.interrupt(); // Cancel that task in case it's still running.
+            readTask.waitFor();
+            pingTask.interrupt(); // Cancel that task in case it's still running.
         } catch (NoSuchAlgorithmException e) {
             // Shouldn't happen.
             connection.logger.exception(e);
@@ -147,7 +148,11 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
             if (websocket != null) {
                 websocket.close();
             }
-            listener.onClose(null);
+            try {
+                listener.onClose(websocket);
+            } catch (Throwable t) {
+                connection.logger.warn("An exception occurred whilst closing listener:\n%s", t);
+            }
         }
         return false;
     }
@@ -159,6 +164,9 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketLi
 
     public static interface WebsocketHandler {
 
+        /**
+         * This is called in a {@link TaskType#LIGHT_IO} context.
+         */
         public WebsocketListener handle(WebsocketSession session);
 
     }
