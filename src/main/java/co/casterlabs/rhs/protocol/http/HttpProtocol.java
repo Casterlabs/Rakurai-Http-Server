@@ -90,7 +90,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             if (kaRequested && session.body().hasBody()) {
                 // Eat any remaining body bytes.
                 InputStream bodyStream = session.body().stream();
-                while (bodyStream.available() != -1) {
+                while (bodyStream.read() != -1) {
                     bodyStream.skip(Long.MAX_VALUE); // Skip as much as possible.
                 }
             }

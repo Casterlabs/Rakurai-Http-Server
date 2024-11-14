@@ -87,8 +87,8 @@ class _ChunkedInputStream extends InputStream {
 
     @Override
     public synchronized int read() throws IOException {
-        this.startChunkReadIfNeeded();
         if (this.isEndOfStream) return -1;
+        this.startChunkReadIfNeeded();
 
         try {
             this.currentChunkSize--;
@@ -106,8 +106,8 @@ class _ChunkedInputStream extends InputStream {
 
     @Override
     public synchronized int read(byte b[], int off, int len) throws IOException {
-        this.startChunkReadIfNeeded();
         if (this.isEndOfStream) return -1;
+        this.startChunkReadIfNeeded();
 
         // Clamp the read length to the amount actually available.
         if (len > this.currentChunkSize) {
@@ -121,8 +121,8 @@ class _ChunkedInputStream extends InputStream {
 
     @Override
     public synchronized long skip(long n) throws IOException {
+        if (this.isEndOfStream) return 0;
         this.startChunkReadIfNeeded();
-        if (this.isEndOfStream) return -1;
 
         long skipped = this.connection.input.skip(n);
         this.currentChunkSize -= skipped;
@@ -131,8 +131,8 @@ class _ChunkedInputStream extends InputStream {
 
     @Override
     public synchronized int available() throws IOException {
+        if (this.isEndOfStream) return 0;
         this.startChunkReadIfNeeded();
-        if (this.isEndOfStream) return -1;
 
         int chunkSize = this.currentChunkSize > Integer.MAX_VALUE ? // Clamp.
             Integer.MAX_VALUE : (int) this.currentChunkSize;
