@@ -121,6 +121,11 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                     } else {
                         responseMode = ResponseMode.FIXED_LENGTH;
                         response.header("Content-Length", String.valueOf(length));
+
+                        if (kaRequested) {
+                            response.header("Connection", "keep-alive");
+                            response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                        }
                     }
                     break;
 
@@ -147,7 +152,13 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
                     if (contentEncoding != null) {
                         response.header("Content-Encoding", contentEncoding);
-                        response.header("Vary", "Accept-Encoding");
+
+                        if (response.headers.containsKey("Vary")) {
+                            // We need to append instead.
+                            response.header("Vary", String.join(", ", response.headers.get("Vary"), "Accept-Encoding"));
+                        } else {
+                            response.header("Vary", "Accept-Encoding");
+                        }
                     }
                     break;
             }
