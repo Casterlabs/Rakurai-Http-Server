@@ -37,9 +37,9 @@ public class HttpResponse {
     public static final HttpResponse NO_RESPONSE = HttpResponse.newFixedLengthResponse(StandardHttpStatus.NO_RESPONSE, EMPTY_BODY);
     public static final HttpResponse INTERNAL_ERROR = HttpResponse.newFixedLengthResponse(StandardHttpStatus.INTERNAL_ERROR, EMPTY_BODY);
 
-    Map<String, String> headers = new HashMap<>();
-    ResponseContent content;
-    HttpStatus status;
+    final Map<String, String> headers = new HashMap<>();
+    final ResponseContent content;
+    final HttpStatus status;
 
     public HttpResponse(@NonNull ResponseContent content, @NonNull HttpStatus status) {
         this.content = content;
