@@ -10,13 +10,13 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
 import co.casterlabs.rhs.HttpStatus;
+import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.protocol.DropConnectionException;
 import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
-import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
@@ -68,91 +68,100 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
     @SuppressWarnings("deprecation")
     @Override
     public boolean process(HttpSession session, HttpResponse response, RHSConnection connection) throws IOException, HttpException, InterruptedException {
-        boolean kaRequested = false;
+        try (response.content) {
+            boolean kaRequested = false;
 
-        switch (connection.httpVersion) {
-            case HTTP_1_1:
-            case HTTP_1_0: {
-                List<HeaderValue> connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).delimited(",");
-                for (HeaderValue v : connectionHeader) {
-                    if (v.raw().equals("keep-alive")) {
-                        kaRequested = true;
+            switch (connection.httpVersion) {
+                case HTTP_1_1:
+                case HTTP_1_0: {
+                    List<HeaderValue> connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).delimited(",");
+                    for (HeaderValue v : connectionHeader) {
+                        if (v.raw().equals("keep-alive")) {
+                            kaRequested = true;
+                        }
                     }
+                    break;
                 }
-                break;
+
+                case HTTP_0_9:
+                    break;
             }
 
-            case HTTP_0_9:
-                break;
-        }
-
-        if (kaRequested && session.body().hasBody()) {
-            // Eat any remaining body bytes.
-            InputStream bodyStream = session.body().stream();
-            while (bodyStream.available() != -1) {
-                bodyStream.skip(Long.MAX_VALUE); // Skip as much as possible.
-            }
-        }
-
-        long length = response.content.length();
-        String contentEncoding = null;
-        ResponseMode responseMode = null;
-
-        if (connection.httpVersion == HttpVersion.HTTP_1_0) {
-            if (length == -1) {
-                responseMode = ResponseMode.CLOSE_ON_COMPLETE;
-            } else {
-                responseMode = ResponseMode.FIXED_LENGTH;
-            }
-        } else {
-            contentEncoding = _CompressionUtil.pickEncoding(connection, response);
-
-            if (length == -1 || contentEncoding != null) {
-                // Compressed responses should always be chunked.
-                response.header("Transfer-Encoding", "chunked");
-                responseMode = ResponseMode.CHUNKED;
-            } else {
-                responseMode = ResponseMode.FIXED_LENGTH;
-                response.header("Content-Length", String.valueOf(length));
+            if (kaRequested && session.body().hasBody()) {
+                // Eat any remaining body bytes.
+                InputStream bodyStream = session.body().stream();
+                while (bodyStream.available() != -1) {
+                    bodyStream.skip(Long.MAX_VALUE); // Skip as much as possible.
+                }
             }
 
-            if (kaRequested) {
-                // Add the keepalive headers.
-                response.header("Connection", "keep-alive");
-                response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
-            } else {
-                // Let the client know that we will be closing the socket.
-                response.header("Connection", "close");
-            }
+            long length = response.content.length();
+            String contentEncoding = null;
+            ResponseMode responseMode = null;
 
-            if (contentEncoding != null) {
-                response.header("Content-Encoding", contentEncoding);
-                response.header("Vary", "Accept-Encoding");
-            }
-        }
-
-        connection.respond(response.status, response.headers);
-
-        if (!connection.method.equalsIgnoreCase("HEAD")) {
-            OutputStream out = null;
-            try (ResponseContent responseContent = response.content) {
-                if (responseMode == ResponseMode.CHUNKED) {
-                    out = new _ChunkedOutputStream(connection.output);
+            if (connection.httpVersion == HttpVersion.HTTP_1_0) {
+                if (length == -1) {
+                    responseMode = ResponseMode.CLOSE_ON_COMPLETE;
                 } else {
-                    out = new NonCloseableOutputStream(connection.output);
+                    responseMode = ResponseMode.FIXED_LENGTH;
+                }
+            } else {
+                contentEncoding = _CompressionUtil.pickEncoding(connection, response);
+
+                if (length == -1 || contentEncoding != null) {
+                    // Compressed responses should always be chunked.
+                    response.header("Transfer-Encoding", "chunked");
+                    responseMode = ResponseMode.CHUNKED;
+                } else {
+                    responseMode = ResponseMode.FIXED_LENGTH;
+                    response.header("Content-Length", String.valueOf(length));
                 }
 
-                // Write out the response, defaulting to non-encoded responses.
-                _CompressionUtil.writeWithEncoding(contentEncoding, connection.guessedMtu, out, responseContent);
-            } finally {
-                // Chunked output streams have special close implementations that don't actually
-                // close the underlying connection, they just signal that this is the end of the
-                // request.
-                out.close();
-            }
-        }
+                if (kaRequested) {
+                    // Add the keepalive headers.
+                    response.header("Connection", "keep-alive");
+                    response.header("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                } else {
+                    // Let the client know that we will be closing the socket.
+                    response.header("Connection", "close");
+                }
 
-        return kaRequested && responseMode != ResponseMode.CLOSE_ON_COMPLETE;
+                if (contentEncoding != null) {
+                    response.header("Content-Encoding", contentEncoding);
+                    response.header("Vary", "Accept-Encoding");
+                }
+            }
+
+            switch (connection.method) {
+                case "HEAD":
+                    // We must reply with the actual status code and content headers
+                    // but SHOULD NOT send a body.
+                    connection.respond(response.status, response.headers);
+                    break;
+
+                case "OPTIONS":
+                    // We must reply with NO_CONTENT but NOT the body headers.
+                    response.headers.remove("Transfer-Encoding");
+                    response.headers.remove("Content-Length");
+                    connection.respond(StandardHttpStatus.NO_CONTENT, response.headers);
+                    break;
+
+                default:
+                    // Chunked output streams have special close implementations that don't actually
+                    // close the underlying connection, they just signal that this is the end of the
+                    // request.
+                    try (OutputStream out = responseMode == ResponseMode.CHUNKED ? //
+                        new _ChunkedOutputStream(connection.output) : // Chunked response
+                        new NonCloseableOutputStream(connection.output) // Non-encoded response
+                    ) {
+                        connection.respond(response.status, response.headers);
+                        _CompressionUtil.writeWithEncoding(contentEncoding, connection.guessedMtu, out, response.content);
+                    }
+                    break;
+            }
+
+            return kaRequested && responseMode != ResponseMode.CLOSE_ON_COMPLETE;
+        }
     }
 
     private static enum ResponseMode {
