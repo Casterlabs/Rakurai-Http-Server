@@ -1,7 +1,9 @@
 package co.casterlabs.rhs.protocol;
 
 import co.casterlabs.rhs.HttpStatus;
+import lombok.ToString;
 
+@ToString
 public class HttpException extends Exception {
     private static final long serialVersionUID = 4899100353178913026L;
 

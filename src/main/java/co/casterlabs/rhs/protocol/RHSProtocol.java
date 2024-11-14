@@ -18,13 +18,13 @@ public abstract class RHSProtocol<S, R, H> {
      * @implSpec If you do plan on reusing the connection, you <b>MUST</b> swallow
      *           the response by the time this method returns.
      */
-    public abstract boolean process(S session, R response, RHSConnection connection) throws IOException, HttpException, DropConnectionException;
+    public abstract boolean process(S session, R response, RHSConnection connection) throws IOException, HttpException, DropConnectionException, InterruptedException;
 
     public abstract @Nullable R handle(S session, H handler) throws DropConnectionException, HttpException;
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    public final boolean $process_cast(Object session, Object response, RHSConnection connection) throws IOException, HttpException {
+    public final boolean $process_cast(Object session, Object response, RHSConnection connection) throws IOException, HttpException, DropConnectionException, InterruptedException {
         // This exists because of type erasure
         return process((S) session, (R) response, connection);
     }

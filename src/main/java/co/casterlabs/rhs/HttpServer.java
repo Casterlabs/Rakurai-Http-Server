@@ -206,47 +206,48 @@ public class HttpServer {
                     tlsVersion,
                     this.config
                 );
-                sessionLogger.debug("Handling request...");
-
-                sessionLogger.debug("Version: %s, Request headers: %s", connection.httpVersion, connection.headers);
-
-                List<String> toUpgradeTo = Arrays.asList("http");
-                switch (connection.httpVersion) {
-                    case HTTP_1_1: {
-                        String connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).raw().toLowerCase();
-                        if (connectionHeader.contains("upgrade")) {
-                            toUpgradeTo = connection.headers
-                                .getSingleOrDefault("Upgrade", HeaderValue.EMPTY)
-                                .delimited(",")
-                                .stream()
-                                .map(HeaderValue::raw)
-                                .collect(Collectors.toList());
-                        }
-                        break;
-                    }
-
-                    case HTTP_0_9:
-                    case HTTP_1_0:
-                        break;
-                }
-
-                Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = null;
-                for (String protocolName : toUpgradeTo) {
-                    protocolPair = this.config.protocols().get(protocolName);
-                    if (protocolPair != null) {
-                        break;
-                    }
-                }
-
-                if (protocolPair == null) {
-                    connection.respond(HttpStatus.adapt(400, "Unable to upgrade to any of the following protocols: " + toUpgradeTo));
-                    break;
-                }
-
-                RHSProtocol<?, ?, ?> protocol = protocolPair.a();
-                Object handler = protocolPair.b();
 
                 try {
+                    sessionLogger.debug("Handling request...");
+
+                    sessionLogger.debug("Version: %s, Request headers: %s", connection.httpVersion, connection.headers);
+
+                    List<String> toUpgradeTo = Arrays.asList("http");
+                    switch (connection.httpVersion) {
+                        case HTTP_1_1: {
+                            String connectionHeader = connection.headers.getSingleOrDefault("Connection", HeaderValue.EMPTY).raw().toLowerCase();
+                            if (connectionHeader.contains("upgrade")) {
+                                toUpgradeTo = connection.headers
+                                    .getSingleOrDefault("Upgrade", HeaderValue.EMPTY)
+                                    .delimited(",")
+                                    .stream()
+                                    .map(HeaderValue::raw)
+                                    .collect(Collectors.toList());
+                            }
+                            break;
+                        }
+
+                        case HTTP_0_9:
+                        case HTTP_1_0:
+                            break;
+                    }
+
+                    Pair<RHSProtocol<?, ?, ?>, Object> protocolPair = null;
+                    for (String protocolName : toUpgradeTo) {
+                        protocolPair = this.config.protocols().get(protocolName);
+                        if (protocolPair != null) {
+                            break;
+                        }
+                    }
+
+                    if (protocolPair == null) {
+                        connection.respond(HttpStatus.adapt(400, "Unable to upgrade to any of the following protocols: " + toUpgradeTo));
+                        break;
+                    }
+
+                    RHSProtocol<?, ?, ?> protocol = protocolPair.a();
+                    Object handler = protocolPair.b();
+
                     Object session = protocol.accept(connection);
                     if (session == null) return;
 
@@ -263,7 +264,6 @@ public class HttpServer {
                     }
                 } catch (HttpException e) {
                     connection.respond(e.status);
-                    return;
                 }
             }
         } catch (DropConnectionException d) {

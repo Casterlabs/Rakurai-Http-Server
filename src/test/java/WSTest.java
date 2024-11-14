@@ -9,7 +9,7 @@ import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.protocol.websocket.Websocket;
 import co.casterlabs.rhs.protocol.websocket.WebsocketListener;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol;
-import lombok.SneakyThrows;
+import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 
 public class WSTest {
 
@@ -18,19 +18,20 @@ public class WSTest {
         HttpServer server = new HttpServerBuilder()
             .withPort(8080)
             .with(
-                new WebsocketProtocol(), (session) -> new WebsocketListener() {
-                    @SneakyThrows
-                    @Override
-                    public void onText(Websocket websocket, String message) {
-                        websocket.send(message);
-                    }
+                new WebsocketProtocol(), (session) -> WebsocketResponse.accept(
+                    new WebsocketListener() {
+                        @Override
+                        public void onText(Websocket websocket, String message) throws IOException {
+                            websocket.send(message);
+                        }
 
-                    @SneakyThrows
-                    @Override
-                    public void onBinary(Websocket websocket, byte[] bytes) {
-                        websocket.send(bytes);
-                    };
-                }
+                        @Override
+                        public void onBinary(Websocket websocket, byte[] bytes) throws IOException {
+                            websocket.send(bytes);
+                        }
+                    },
+                    session.firstProtocol()
+                )
             )
             .build();
 

@@ -67,7 +67,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
     @SuppressWarnings("deprecation")
     @Override
-    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection) throws IOException, HttpException {
+    public boolean process(HttpSession session, HttpResponse response, RHSConnection connection) throws IOException, HttpException, InterruptedException {
         boolean kaRequested = false;
 
         switch (connection.httpVersion) {

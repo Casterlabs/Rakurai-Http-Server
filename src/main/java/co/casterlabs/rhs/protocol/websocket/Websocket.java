@@ -21,9 +21,7 @@ public abstract class Websocket implements Closeable {
 
     public abstract WebsocketSession session();
 
-    public final @Nullable String protocol() {
-        return this.session().protocol();
-    }
+    public abstract @Nullable String protocol();
 
     /**
      * Sends a text payload to the receiving end.
@@ -51,6 +49,6 @@ public abstract class Websocket implements Closeable {
 
     abstract void ping();
 
-    abstract void process();
+    abstract void process() throws IOException;
 
 }
