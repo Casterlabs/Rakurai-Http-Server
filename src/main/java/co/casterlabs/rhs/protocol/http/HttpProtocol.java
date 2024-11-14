@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -110,6 +112,8 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
             long length = response.content.length();
             String contentEncoding = null;
             ResponseMode responseMode = null;
+            Map<String, String> responseHeaders = new HashMap<>(response.headers); // Clone.
+
             switch (connection.httpVersion) {
                 case HTTP_0_9:
                     responseMode = ResponseMode.CLOSE_ON_COMPLETE;
@@ -120,11 +124,11 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                         responseMode = ResponseMode.CLOSE_ON_COMPLETE;
                     } else {
                         responseMode = ResponseMode.FIXED_LENGTH;
-                        response.headers.put("Content-Length", String.valueOf(length));
+                        responseHeaders.put("Content-Length", String.valueOf(length));
 
                         if (kaRequested) {
-                            response.headers.put("Connection", "keep-alive");
-                            response.headers.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                            responseHeaders.put("Connection", "keep-alive");
+                            responseHeaders.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
                         }
                     }
                     break;
@@ -134,30 +138,30 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
                     if (length == -1 || contentEncoding != null) {
                         // Compressed responses should always be chunked.
-                        response.headers.put("Transfer-Encoding", "chunked");
+                        responseHeaders.put("Transfer-Encoding", "chunked");
                         responseMode = ResponseMode.CHUNKED;
                     } else {
                         responseMode = ResponseMode.FIXED_LENGTH;
-                        response.headers.put("Content-Length", String.valueOf(length));
+                        responseHeaders.put("Content-Length", String.valueOf(length));
                     }
 
                     if (kaRequested) {
                         // Add the keepalive headers.
-                        response.headers.put("Connection", "keep-alive");
-                        response.headers.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                        responseHeaders.put("Connection", "keep-alive");
+                        responseHeaders.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
                     } else {
                         // Let the client know that we will be closing the socket.
-                        response.headers.put("Connection", "close");
+                        responseHeaders.put("Connection", "close");
                     }
 
                     if (contentEncoding != null) {
-                        response.headers.put("Content-Encoding", contentEncoding);
+                        responseHeaders.put("Content-Encoding", contentEncoding);
 
-                        if (response.headers.containsKey("Vary")) {
+                        if (responseHeaders.containsKey("Vary")) {
                             // We need to append instead.
-                            response.headers.put("Vary", String.join(", ", response.headers.get("Vary"), "Accept-Encoding"));
+                            responseHeaders.put("Vary", String.join(", ", responseHeaders.get("Vary"), "Accept-Encoding"));
                         } else {
-                            response.headers.put("Vary", "Accept-Encoding");
+                            responseHeaders.put("Vary", "Accept-Encoding");
                         }
                     }
                     break;
@@ -167,14 +171,14 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                 case "HEAD":
                     // We must reply with the actual status code and content headers
                     // but SHOULD NOT send a body.
-                    connection.respond(response.status, response.headers);
+                    connection.respond(response.status, responseHeaders);
                     break;
 
                 case "OPTIONS":
                     // We must reply with NO_CONTENT but NOT the body headers.
-                    response.headers.remove("Transfer-Encoding");
-                    response.headers.remove("Content-Length");
-                    connection.respond(StandardHttpStatus.NO_CONTENT, response.headers);
+                    responseHeaders.remove("Transfer-Encoding");
+                    responseHeaders.remove("Content-Length");
+                    connection.respond(StandardHttpStatus.NO_CONTENT, responseHeaders);
                     break;
 
                 default:
@@ -185,7 +189,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                         new _ChunkedOutputStream(connection.output) : // Chunked response
                         new NonCloseableOutputStream(connection.output) // Non-encoded response
                     ) {
-                        connection.respond(response.status, response.headers);
+                        connection.respond(response.status, responseHeaders);
                         _CompressionUtil.writeWithEncoding(contentEncoding, connection.guessedMtu, out, response.content);
                     }
                     break;
