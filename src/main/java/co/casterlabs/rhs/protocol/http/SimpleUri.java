@@ -27,7 +27,7 @@ public class SimpleUri {
 
     @Override
     public String toString() {
-        return this.host + this.path + this.query.raw;
+        return this.host + this.path + '?' + this.query.raw;
     }
 
 }
