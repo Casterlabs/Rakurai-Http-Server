@@ -101,7 +101,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                     break;
             }
 
-            if (kaRequested && session.body().hasBody()) {
+            if (kaRequested && session.body().present()) {
                 // Eat any remaining body bytes.
                 InputStream bodyStream = session.body().stream();
                 while (bodyStream.read() != -1) {

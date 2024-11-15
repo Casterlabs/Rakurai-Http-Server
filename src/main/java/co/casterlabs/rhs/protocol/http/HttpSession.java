@@ -8,17 +8,12 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.commons.io.streams.StreamUtil;
-import co.casterlabs.rakurai.json.Rson;
-import co.casterlabs.rakurai.json.deserialization.JsonParser;
-import co.casterlabs.rakurai.json.element.JsonElement;
-import co.casterlabs.rakurai.json.serialization.JsonParseException;
 import co.casterlabs.rhs.HttpMethod;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.TLSVersion;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import lombok.AccessLevel;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
@@ -33,7 +28,7 @@ public class HttpSession {
 
     // URI
     public SimpleUri uri() {
-        return connection.uri;
+        return this.connection.uri;
     }
 
     // Request body
@@ -46,13 +41,14 @@ public class HttpSession {
     public class HttpSessionBody {
         private byte[] cachedBody;
 
-        public @Nullable String mimeType() {
-            if (!this.hasBody()) return null;
-            return HttpSession.this.headers().getSingle("Content-Type").withoutDirectives();
+        public @Nullable String mime() {
+            if (!this.present()) return null;
+            if (!HttpSession.this.headers().containsKey("Content-Type")) return "application/octet-stream";
+            return HttpSession.this.headers().getSingle("Content-Type").raw();
         }
 
         public @Nullable Charset charset() {
-            if (!this.hasBody()) return null;
+            if (!this.present()) return null;
 
             CaseInsensitiveMultiMap<String> directives = HttpSession.this.headers().getSingle("Content-Type").directives();
             return Charset.forName(
@@ -62,17 +58,21 @@ public class HttpSession {
             );
         }
 
-        public boolean hasBody() {
+        public boolean present() {
             return HttpSession.this.bodyIn != null;
+        }
+
+        /**
+         * @return -1 if the body is chunked or not present.
+         */
+        public long length() {
+            if (!this.present()) return -1;
+            if (!HttpSession.this.headers().containsKey("Content-Length")) return -1;
+            return Long.parseLong(HttpSession.this.headers().getSingle("Content-Length").raw());
         }
 
         public @Nullable String string() throws IOException {
             return new String(this.bytes(), this.charset());
-        }
-
-        public @NonNull JsonElement json() throws IOException, JsonParseException {
-            String body = this.string();
-            return JsonParser.parseString(body, Rson.DEFAULT.getConfig());
         }
 
         public @Nullable byte[] bytes() throws IOException {
@@ -89,7 +89,7 @@ public class HttpSession {
          */
         @SuppressWarnings("deprecation")
         public @Nullable InputStream stream() throws IOException {
-            if (!this.hasBody()) {
+            if (!this.present()) {
                 throw new IllegalStateException("Request body is not present. Call hasBody() first.");
             }
 
@@ -98,7 +98,7 @@ public class HttpSession {
         }
 
         public Query urlEncoded() throws IOException {
-            String mime = this.mimeType();
+            String mime = this.mime();
             if (!mime.equals("application/x-www-form-urlencoded")) {
                 throw new IllegalStateException("Unsupported form body type: " + mime);
             }

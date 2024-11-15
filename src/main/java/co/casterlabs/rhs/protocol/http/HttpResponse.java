@@ -17,10 +17,6 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.commons.io.streams.StreamUtil;
-import co.casterlabs.rakurai.CharStrings;
-import co.casterlabs.rakurai.json.element.JsonArray;
-import co.casterlabs.rakurai.json.element.JsonElement;
-import co.casterlabs.rakurai.json.element.JsonObject;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.protocol.DropConnectionException;
@@ -99,24 +95,6 @@ public class HttpResponse {
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull String body) {
         return newFixedLengthResponse(status, body.getBytes(StandardCharsets.UTF_8))
             .mime("text/plain; charset=utf-8");
-    }
-
-    public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull char[] body) {
-        return newFixedLengthResponse(status, CharStrings.strbytes(body))
-            .mime("text/plain; charset=utf-8");
-    }
-
-    public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull JsonElement json) {
-        if ((json instanceof JsonObject) || (json instanceof JsonArray)) {
-            byte[] body = json
-                .toString(false)
-                .getBytes(StandardCharsets.UTF_8);
-
-            return newFixedLengthResponse(status, body)
-                .mime("application/json; charset=utf-8");
-        } else {
-            throw new IllegalArgumentException("Json must be an Object or Array.");
-        }
     }
 
     public static HttpResponse newFixedLengthResponse(@NonNull HttpStatus status, @NonNull byte[] body) {
