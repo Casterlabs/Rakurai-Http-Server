@@ -1,6 +1,5 @@
 package co.casterlabs.rhs.protocol;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
@@ -28,7 +27,7 @@ import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 import xyz.e3ndr.fastloggingframework.logging.LogLevel;
 
 @RequiredArgsConstructor
-public class RHSConnection implements Closeable {
+public class RHSConnection {
     public static final int HTTP_PERSISTENT_TIMEOUT = 30;
     public static final Charset CHARSET = StandardCharsets.ISO_8859_1;
 
@@ -106,16 +105,6 @@ public class RHSConnection implements Closeable {
                 break;
         }
         this.expectFulfilled = true;
-    }
-
-    @Override
-    public void close() {
-        try {
-            this.input.close();
-        } catch (IOException ignored) {}
-        try {
-            this.output.close();
-        } catch (IOException ignored) {}
     }
 
     public final List<String> hops() {
