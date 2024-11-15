@@ -8,26 +8,30 @@ public class SimpleUri {
     public final String path;
     public final Query query;
 
+    public final String raw;
+
     public static SimpleUri from(String host, String pathAndQuery) {
         int idx = pathAndQuery.indexOf('?');
         if (idx == -1) {
             return new SimpleUri(
                 host,
                 pathAndQuery,
-                Query.from("")
+                Query.EMPTY,
+                host + pathAndQuery
             );
         } else {
             return new SimpleUri(
                 host,
                 pathAndQuery.substring(0, idx),
-                Query.from(pathAndQuery.substring(idx + 1))
+                Query.from(pathAndQuery.substring(idx + 1)),
+                host + pathAndQuery
             );
         }
     }
 
     @Override
     public String toString() {
-        return this.host + this.path + '?' + this.query.raw;
+        return this.raw;
     }
 
 }

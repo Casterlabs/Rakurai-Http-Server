@@ -4,6 +4,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,8 @@ import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import lombok.NonNull;
 
 public class Query extends CaseInsensitiveMultiMap<String> {
+    public static final Query EMPTY = new Query(Collections.emptyMap(), "");
+
     public final String raw;
 
     private Query(Map<String, List<String>> src, String raw) {
