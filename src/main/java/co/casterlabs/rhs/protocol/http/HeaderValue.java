@@ -43,6 +43,7 @@ public class HeaderValue {
         if (directiveIndex == -1) {
             this.cached_withoutDirectives = this.raw;
             this.cached_directives = CaseInsensitiveMultiMap.emptyMap();
+            return;
         }
 
         CaseInsensitiveMultiMap.Builder<String> directives = new CaseInsensitiveMultiMap.Builder<>();
