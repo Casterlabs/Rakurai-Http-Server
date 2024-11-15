@@ -8,7 +8,7 @@ public class SimpleUri {
     public final String path;
     public final Query query;
 
-    public final String raw;
+    public final String rawPath;
 
     public static SimpleUri from(String host, String pathAndQuery) {
         int idx = pathAndQuery.indexOf('?');
@@ -17,21 +17,21 @@ public class SimpleUri {
                 host,
                 pathAndQuery,
                 Query.EMPTY,
-                host + pathAndQuery
+                pathAndQuery
             );
         } else {
             return new SimpleUri(
                 host,
                 pathAndQuery.substring(0, idx),
                 Query.from(pathAndQuery.substring(idx + 1)),
-                host + pathAndQuery
+                pathAndQuery
             );
         }
     }
 
     @Override
     public String toString() {
-        return this.raw;
+        return this.host + this.rawPath;
     }
 
 }
