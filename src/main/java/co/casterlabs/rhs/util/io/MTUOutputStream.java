@@ -31,9 +31,4 @@ public class MTUOutputStream extends OutputStream {
         this.underlying.flush();
     }
 
-    @Override
-    public void close() throws IOException {
-        this.underlying.close();
-    }
-
 }

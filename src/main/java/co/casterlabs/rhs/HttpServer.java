@@ -173,8 +173,8 @@ public class HttpServer {
     private void handle(Socket clientSocket, int guessedMtu) {
         String remoteAddress = formatAddress(clientSocket);
 
-        if (clientSocket.isClosed()) {
-            this.logger.debug("%s was closed before we could handle it. Oh well.", remoteAddress);
+        if (clientSocket.isInputShutdown() || clientSocket.isOutputShutdown()) {
+            this.logger.warn("%s was closed before we could handle it. Oh well.", remoteAddress);
             return;
         }
 
