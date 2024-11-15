@@ -1,6 +1,5 @@
 package co.casterlabs.rhs;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Inet6Address;
@@ -59,7 +58,7 @@ public class HttpServer {
     /* API              */
     /* ---------------- */
 
-    public void start() throws IOException {
+    public synchronized void start() throws IOException {
         if (this.isAlive()) return;
 
         try {
@@ -128,7 +127,7 @@ public class HttpServer {
         }
     }
 
-    public void stop(boolean disconnectClients) throws IOException {
+    public synchronized void stop(boolean disconnectClients) throws IOException {
         try {
             if (this.isAlive()) {
                 this.serverSocket.close();
@@ -136,7 +135,11 @@ public class HttpServer {
 
             if (disconnectClients) {
                 new ArrayList<>(this.connectedClients) // Copy.
-                    .forEach(HttpServer::safeClose);
+                    .forEach((c) -> {
+                        try {
+                            c.close();
+                        } catch (IOException ignored) {}
+                    });
                 this.connectedClients.clear();
             }
         } finally {
@@ -144,13 +147,12 @@ public class HttpServer {
         }
     }
 
-    public boolean isAlive() {
+    public synchronized boolean isAlive() {
         return this.serverSocket != null;
     }
 
     public int port() {
-        return this.isAlive() ? //
-            this.serverSocket.getLocalPort() : this.config.port();
+        return this.config.port();
     }
 
     /* ---------------- */
@@ -162,26 +164,27 @@ public class HttpServer {
             Socket clientSocket = this.serverSocket.accept();
             this.connectedClients.add(clientSocket);
 
-            int guessedMtu = guessMtu(clientSocket);
-            String remoteAddress = formatAddress(clientSocket);
-            this.executor.execute(() -> this.handle(clientSocket, remoteAddress, guessedMtu), TaskType.LIGHT_IO);
+            this.executor.execute(() -> this.handle(clientSocket), TaskType.LIGHT_IO);
         } catch (Throwable t) {
             this.logger.severe("An error occurred whilst accepting a new connection:\n%s", t);
         }
     }
 
     @SuppressWarnings("deprecation")
-    private void handle(Socket clientSocket, String remoteAddress, int guessedMtu) {
+    private void handle(Socket clientSocket) {
+        int guessedMtu = guessMtu(clientSocket);
+        String remoteAddress = formatAddress(clientSocket);
+
         this.logger.debug("New connection from %s", remoteAddress);
         FastLogger sessionLogger = this.logger.createChild("Connection: " + remoteAddress);
 
-        TLSVersion tlsVersion = null;
-        if (clientSocket instanceof SSLSocket) {
-            SSLSession ssl = ((SSLSocket) clientSocket).getSession();
-            tlsVersion = TLSVersion.parse(ssl.getProtocol());
-        }
+        try (clientSocket) {
+            TLSVersion tlsVersion = null;
+            if (clientSocket instanceof SSLSocket) {
+                SSLSession ssl = ((SSLSocket) clientSocket).getSession();
+                tlsVersion = TLSVersion.parse(ssl.getProtocol());
+            }
 
-        try {
             clientSocket.setTcpNoDelay(true);
             sessionLogger.trace("Set TCP_NODELAY.");
 
@@ -275,7 +278,6 @@ public class HttpServer {
                 sessionLogger.fatal("An error occurred whilst handling request:\n%s", e);
             }
         } finally {
-            safeClose(clientSocket);
             this.connectedClients.remove(clientSocket);
             this.logger.debug("Closed connection from %s", remoteAddress);
             Thread.interrupted(); // Clear.
@@ -304,36 +306,6 @@ public class HttpServer {
         return address;
     }
 
-    private static boolean shouldIgnoreThrowable(Throwable t) {
-        if (t instanceof InterruptedException) return true;
-        if (t instanceof SSLHandshakeException) return true;
-
-        String message = t.getMessage();
-        if (message == null) return false;
-        message = message.toLowerCase();
-
-        if (message.contains("socket closed") ||
-            message.contains("socket is closed") ||
-            message.contains("read timed out") ||
-            message.contains("connection abort") ||
-            message.contains("connection was abort") ||
-            message.contains("connection or inbound has closed") ||
-            message.contains("connection or outbound has closed") ||
-            message.contains("connection reset") ||
-            message.contains("received fatal alert: internal_error") ||
-            message.contains("socket write error") ||
-            message.contains("broken pipe") ||
-            message.contains("reached end of stream before line was fully read")) return true;
-
-        return false;
-    }
-
-    private static void safeClose(Closeable c) {
-        try {
-            c.close();
-        } catch (Exception ignored) {}
-    }
-
     private static int guessMtu(Socket clientSocket) {
         InetAddress address = clientSocket.getInetAddress();
 
@@ -356,6 +328,42 @@ public class HttpServer {
              */
             return 1500 - 60;
         }
+    }
+
+    private static final Class<?>[] SILENCED_THROWABLES = {
+            InterruptedException.class,
+            SSLHandshakeException.class
+    };
+
+    private static final String[] SILENCED_THROWABLE_MESSAGES = {
+            "socket closed",
+            "socket is closed",
+            "read timed out",
+            "connection abort",
+            "connection was abort",
+            "connection or inbound has closed",
+            "connection or outbound has closed",
+            "connection reset",
+            "received fatal alert: internal_error",
+            "socket write error",
+            "broken pipe",
+            "reached end of stream before line was fully read"
+    };
+
+    private static boolean shouldIgnoreThrowable(Throwable t) {
+        for (Class<?> c : SILENCED_THROWABLES) {
+            if (t.getClass().isInstance(c)) return true;
+        }
+
+        String message = t.getMessage();
+        if (message == null) return false;
+        message = message.toLowerCase();
+
+        for (String e : SILENCED_THROWABLE_MESSAGES) {
+            if (message.contains(e)) return true;
+        }
+
+        return false;
     }
 
 }
