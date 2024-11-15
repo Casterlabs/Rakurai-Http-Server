@@ -15,18 +15,21 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class HttpSession {
     protected final RHSConnection connection;
     private final @Nullable InputStream bodyIn;
 
-    // Request headers
+    public FastLogger logger() {
+        return this.connection.logger;
+    }
+
     public CaseInsensitiveMultiMap<HeaderValue> headers() {
         return this.connection.headers;
     }
 
-    // URI
     public SimpleUri uri() {
         return this.connection.uri;
     }

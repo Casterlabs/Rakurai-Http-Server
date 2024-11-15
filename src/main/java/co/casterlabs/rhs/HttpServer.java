@@ -34,10 +34,12 @@ import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 import co.casterlabs.rhs.util.io.MTUOutputStream;
 import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 
+@Accessors(fluent = true)
 public class HttpServer {
-    private final FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
+    private final @Getter FastLogger logger = new FastLogger("Rakurai RakuraiHttpServer");
 
     private final HttpServerBuilder config;
 
