@@ -266,16 +266,19 @@ public class HttpServer {
                     connection.respond(e.status);
                 }
             }
-        } catch (DropConnectionException d) {
+        } catch (DropConnectionException | HttpException d) {
             sessionLogger.debug("Dropping connection!\n%s", d);
         } catch (Throwable e) {
-            if (!shouldIgnoreThrowable(e)) {
+            if (shouldIgnoreThrowable(e)) {
+                sessionLogger.debug("An error occurred whilst handling request, swallowing it:\n%s", e);
+            } else {
                 sessionLogger.fatal("An error occurred whilst handling request:\n%s", e);
             }
         } finally {
             safeClose(clientSocket);
             this.connectedClients.remove(clientSocket);
             this.logger.debug("Closed connection from %s", remoteAddress);
+            Thread.interrupted(); // Clear.
         }
     }
 
@@ -315,9 +318,12 @@ public class HttpServer {
             message.contains("connection abort") ||
             message.contains("connection was abort") ||
             message.contains("connection or inbound has closed") ||
+            message.contains("connection or outbound has closed") ||
             message.contains("connection reset") ||
             message.contains("received fatal alert: internal_error") ||
-            message.contains("socket write error")) return true;
+            message.contains("socket write error") ||
+            message.contains("broken pipe") ||
+            message.contains("reached end of stream before line was fully read")) return true;
 
         return false;
     }
