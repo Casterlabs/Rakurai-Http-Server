@@ -163,23 +163,16 @@ public class HttpServer {
             this.connectedClients.add(clientSocket);
 
             int guessedMtu = guessMtu(clientSocket);
-            this.executor.execute(() -> this.handle(clientSocket, guessedMtu), TaskType.LIGHT_IO);
+            String remoteAddress = formatAddress(clientSocket);
+            this.executor.execute(() -> this.handle(clientSocket, remoteAddress, guessedMtu), TaskType.LIGHT_IO);
         } catch (Throwable t) {
             this.logger.severe("An error occurred whilst accepting a new connection:\n%s", t);
         }
     }
 
     @SuppressWarnings("deprecation")
-    private void handle(Socket clientSocket, int guessedMtu) {
-        String remoteAddress = formatAddress(clientSocket);
-
-        if (clientSocket.isInputShutdown() || clientSocket.isOutputShutdown()) {
-            this.logger.warn("%s was closed before we could handle it. Oh well.", remoteAddress);
-            return;
-        }
-
+    private void handle(Socket clientSocket, String remoteAddress, int guessedMtu) {
         this.logger.debug("New connection from %s", remoteAddress);
-
         FastLogger sessionLogger = this.logger.createChild("Connection: " + remoteAddress);
 
         TLSVersion tlsVersion = null;
@@ -189,11 +182,16 @@ public class HttpServer {
         }
 
         try {
-            OverzealousInputStream input = new OverzealousInputStream(clientSocket.getInputStream());
-            OutputStream output = new MTUOutputStream(clientSocket.getOutputStream(), guessedMtu);
-
             clientSocket.setTcpNoDelay(true);
             sessionLogger.trace("Set TCP_NODELAY.");
+
+            if (clientSocket.isInputShutdown() || clientSocket.isOutputShutdown()) {
+                this.logger.warn("%s was closed before we could handle it. Oh well.", remoteAddress);
+                return;
+            }
+
+            OverzealousInputStream input = new OverzealousInputStream(clientSocket.getInputStream());
+            OutputStream output = new MTUOutputStream(clientSocket.getOutputStream(), guessedMtu);
 
             while (true) {
                 // Protocols can override this so we need to reset it every time.
