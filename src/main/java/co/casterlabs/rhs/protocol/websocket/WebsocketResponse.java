@@ -48,7 +48,7 @@ public abstract class WebsocketResponse {
      */
     public static WebsocketResponse accept(@NonNull WebsocketListener listener, @Nullable String acceptedProtocol, int maxPayloadLength) {
         assert maxPayloadLength > 65535 : "Max payload length must be larger than 64kb (65535 bytes).";
-        assert maxPayloadLength > Integer.MAX_VALUE : "Max payload length must be smaller than Integer.MAX_VALUE.";
+        assert maxPayloadLength < Integer.MAX_VALUE : "Max payload length must be smaller than Integer.MAX_VALUE.";
         return new AcceptedWebsocketResponse(listener, acceptedProtocol, maxPayloadLength);
     }
 
