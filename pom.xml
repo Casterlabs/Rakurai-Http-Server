@@ -131,14 +131,20 @@
 
 		<dependency>
 			<groupId>co.casterlabs.commons</groupId>
-			<artifactId>io</artifactId>
-			<version>1.8.0-1</version>
+			<artifactId>async</artifactId>
+			<version>f8b3d29</version>
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>co.casterlabs.commons</groupId>
 			<artifactId>functional</artifactId>
-			<version>1.8.0-1</version>
+			<version>f8b3d29</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>co.casterlabs.commons</groupId>
+			<artifactId>io</artifactId>
+			<version>f8b3d29</version>
 			<scope>compile</scope>
 		</dependency>
 

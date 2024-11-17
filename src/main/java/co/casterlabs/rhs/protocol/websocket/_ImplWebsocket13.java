@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.Nullable;
 
+import co.casterlabs.commons.async.Lock;
 import co.casterlabs.commons.io.marshalling.PrimitiveMarshall;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse.AcceptedWebsocketResponse;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 @SuppressWarnings("deprecation")
 @RequiredArgsConstructor
 class _ImplWebsocket13 extends Websocket {
+    private final Lock lock = new Lock();
+
     private final WebsocketSession session;
     private final AcceptedWebsocketResponse response;
     private final RHSConnection connection;
@@ -64,81 +67,85 @@ class _ImplWebsocket13 extends Websocket {
         private static final int PONG = 10;
     }
 
-    private synchronized void sendOrFragment(int op, byte[] bytes) throws IOException {
-        try {
-            if (bytes.length <= this.connection.guessedMtu) {
-                // Don't fragment.
-                this.sendFrame(true, op, bytes);
-                return;
+    private void sendOrFragment(int op, byte[] bytes) throws IOException {
+        this.lock.execute(() -> {
+            try {
+                if (bytes.length <= this.connection.guessedMtu) {
+                    // Don't fragment.
+                    this.sendFrame(true, op, bytes);
+                    return;
+                }
+
+                int toWrite = bytes.length;
+                int written = 0;
+
+                while (toWrite > 0) {
+                    byte[] chunk = new byte[Math.min(toWrite, this.connection.guessedMtu)];
+                    System.arraycopy(bytes, written, chunk, 0, chunk.length);
+                    toWrite -= chunk.length;
+
+                    boolean fin = toWrite == 0;
+                    int chunkOp = written == 0 ? op : WebsocketOpCode.CONTINUATION;
+
+                    this.sendFrame(fin, chunkOp, chunk);
+
+                    written += chunk.length;
+                }
+            } catch (IOException e) {
+                this.close();
+                throw e;
             }
-
-            int toWrite = bytes.length;
-            int written = 0;
-
-            while (toWrite > 0) {
-                byte[] chunk = new byte[Math.min(toWrite, this.connection.guessedMtu)];
-                System.arraycopy(bytes, written, chunk, 0, chunk.length);
-                toWrite -= chunk.length;
-
-                boolean fin = toWrite == 0;
-                int chunkOp = written == 0 ? op : WebsocketOpCode.CONTINUATION;
-
-                this.sendFrame(fin, chunkOp, chunk);
-
-                written += chunk.length;
-            }
-        } catch (IOException e) {
-            this.close();
-            throw e;
-        }
+        });
     }
 
-    private synchronized void sendFrame(boolean fin, int op, byte[] bytes) throws IOException {
-        int len7 = bytes.length;
-        if (len7 > 125) {
-            if (bytes.length > 65535) {
-                len7 = 127; // Use 64bit length.
-            } else {
-                len7 = 126; // Use 16bit length.
+    private void sendFrame(boolean fin, int op, byte[] bytes) throws IOException {
+        this.lock.execute(() -> {
+            int len7 = bytes.length;
+            if (len7 > 125) {
+                if (bytes.length > 65535) {
+                    len7 = 127; // Use 64bit length.
+                } else {
+                    len7 = 126; // Use 16bit length.
+                }
             }
-        }
 
-        int header1 = 0;
-        header1 |= (fin ? 1 : 0) << 7;
-        header1 |= op;
+            int header1 = 0;
+            header1 |= (fin ? 1 : 0) << 7;
+            header1 |= op;
 
-        int header2 = 0;
-        header2 |= len7;
-//        header2 |= 0b00000000; // Mask.
+            int header2 = 0;
+            header2 |= len7;
+//            header2 |= 0b00000000; // Mask.
 
-        // Nagle's algorithm is disabled (aka no delay mode), so we batch writes to be
-        // more efficient.
-        if (len7 == 126) {
-            byte[] headerBytes = PrimitiveMarshall.BIG_ENDIAN.intToBytes(bytes.length);
-            headerBytes[0] = (byte) header1;
-            headerBytes[1] = (byte) header2; // We only need the first 16 bits from length, so we can overwrite 1-2 safely.
+            // Nagle's algorithm is disabled (aka no delay mode), so we batch writes to be
+            // more efficient.
+            if (len7 == 126) {
+                byte[] headerBytes = PrimitiveMarshall.BIG_ENDIAN.intToBytes(bytes.length);
+                headerBytes[0] = (byte) header1;
+                headerBytes[1] = (byte) header2; // We only need the first 16 bits from length, so we can overwrite 1-2 safely.
 
-            this.connection.output.write(headerBytes);
-        } else if (len7 == 127) {
-            byte[] lenBytes = PrimitiveMarshall.BIG_ENDIAN.longToBytes(bytes.length);
+                this.connection.output.write(headerBytes);
+            } else if (len7 == 127) {
+                byte[] lenBytes = PrimitiveMarshall.BIG_ENDIAN.longToBytes(bytes.length);
 
-            byte[] headerBytes = new byte[Long.BYTES + 2];
-            headerBytes[0] = (byte) header1;
-            headerBytes[1] = (byte) header2;
+                byte[] headerBytes = new byte[Long.BYTES + 2];
+                headerBytes[0] = (byte) header1;
+                headerBytes[1] = (byte) header2;
 
-            System.arraycopy(lenBytes, 0, headerBytes, 2, Long.BYTES);
+                System.arraycopy(lenBytes, 0, headerBytes, 2, Long.BYTES);
 
-            this.connection.output.write(headerBytes);
-        } else {
-            this.connection.output.write(new byte[] {
-                    (byte) header1,
-                    (byte) header2
-            });
-        }
+                this.connection.output.write(headerBytes);
+            } else {
+                this.connection.output.write(new byte[] {
+                        (byte) header1,
+                        (byte) header2
+                });
+            }
 
-        // Note we use an MTUOutputStream here so that we batch writes to be more
-        // efficient when transmitted over the wire.
-        this.connection.output.write(bytes);
+            // Note we use an MTUOutputStream here so that we batch writes to be more
+            // efficient when transmitted over the wire.
+            this.connection.output.write(bytes);
+        });
     }
 
     /* ---------------- */
