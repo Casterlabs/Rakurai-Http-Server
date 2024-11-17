@@ -28,7 +28,6 @@ import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse.AcceptedWebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse.RejectedWebsocketResponse;
 import co.casterlabs.rhs.util.TaskExecutor.Task;
-import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 
 public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketResponse, WebsocketHandler> {
     private static final long PING_INTERVAL = TimeUnit.SECONDS.toMillis(5);
@@ -129,11 +128,7 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketRe
             connection.respond(StandardHttpStatus.SWITCHING_PROTOCOLS, responseHeaders);
             connection.logger.trace("WebSocket upgrade complete, ready to process frames.");
 
-            final Task readTask = connection.config.taskExecutor().execute(() -> {
-                try {
-                    websocket.process(); // This calls onOpen().
-                } catch (IOException ignored) {}
-            }, TaskType.HEAVY_IO);
+            Thread readThread = Thread.currentThread();
 
             final Task pingTask = connection.config.taskExecutor().execute(() -> {
                 try {
@@ -142,12 +137,15 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketRe
                         Thread.sleep(PING_INTERVAL);
                     }
                 } catch (Exception ignored) {
-                    readTask.interrupt();
+                    readThread.interrupt();
                 }
-            }, TaskType.MEDIUM_IO);
+            });
 
-            readTask.waitFor();
-            pingTask.interrupt(); // Cancel that task in case it's still running.
+            try {
+                websocket.process(); // This calls onOpen().
+            } catch (IOException ignored) {} finally {
+                pingTask.interrupt(); // Cancel that task in case it's still running.
+            }
 
             return false;
         } finally {

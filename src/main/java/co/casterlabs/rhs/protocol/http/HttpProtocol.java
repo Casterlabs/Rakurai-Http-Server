@@ -19,7 +19,6 @@ import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
-import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {
 

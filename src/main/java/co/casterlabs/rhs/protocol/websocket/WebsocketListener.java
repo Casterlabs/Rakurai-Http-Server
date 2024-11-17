@@ -2,8 +2,6 @@ package co.casterlabs.rhs.protocol.websocket;
 
 import java.io.IOException;
 
-import co.casterlabs.rhs.util.TaskExecutor.TaskType;
-
 public interface WebsocketListener {
 
     /**

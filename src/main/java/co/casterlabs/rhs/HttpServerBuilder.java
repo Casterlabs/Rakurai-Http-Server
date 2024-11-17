@@ -52,9 +52,9 @@ public class HttpServerBuilder {
             null, false,
             "Rakurai/latest",
             Collections.emptyMap(),
-            (r, u) -> {
+            (r) -> {
                 Thread t = new Thread(r);
-                t.setName(u + " THREAD");
+                t.setName("RHS THREAD");
                 t.start();
                 return new Task() {
                     @Override

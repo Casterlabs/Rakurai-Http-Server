@@ -29,7 +29,6 @@ import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
 import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.util.TaskExecutor;
-import co.casterlabs.rhs.util.TaskExecutor.TaskType;
 import co.casterlabs.rhs.util.io.MTUOutputStream;
 import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import lombok.Getter;
@@ -164,7 +163,7 @@ public class HttpServer {
             Socket clientSocket = this.serverSocket.accept();
             this.connectedClients.add(clientSocket);
 
-            this.executor.execute(() -> this.handle(clientSocket), TaskType.LIGHT_IO);
+            this.executor.execute(() -> this.handle(clientSocket));
         } catch (Throwable t) {
             this.logger.severe("An error occurred whilst accepting a new connection:\n%s", t);
         }
