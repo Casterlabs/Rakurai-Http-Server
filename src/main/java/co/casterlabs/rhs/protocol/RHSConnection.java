@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
+import co.casterlabs.commons.io.streams.OverzealousInputStream;
 import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
@@ -21,7 +22,6 @@ import co.casterlabs.rhs.protocol._ConnectionUtil.RequestLineInfo;
 import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.protocol.http.SimpleUri;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
-import co.casterlabs.rhs.util.io.OverzealousInputStream;
 import lombok.RequiredArgsConstructor;
 import xyz.e3ndr.fastloggingframework.logging.FastLogger;
 import xyz.e3ndr.fastloggingframework.logging.LogLevel;

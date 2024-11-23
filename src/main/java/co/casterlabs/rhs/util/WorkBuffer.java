@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.util.io;
+package co.casterlabs.rhs.util;
 
 public class WorkBuffer {
     public final byte[] raw;

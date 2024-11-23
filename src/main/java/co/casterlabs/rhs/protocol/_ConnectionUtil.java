@@ -3,12 +3,12 @@ package co.casterlabs.rhs.protocol;
 import java.io.IOException;
 import java.io.InputStream;
 
+import co.casterlabs.commons.io.streams.OverzealousInputStream;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.protocol.http.HeaderValue;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
-import co.casterlabs.rhs.util.io.OverzealousInputStream;
-import co.casterlabs.rhs.util.io.WorkBuffer;
+import co.casterlabs.rhs.util.WorkBuffer;
 import lombok.AllArgsConstructor;
 
 class _ConnectionUtil {
@@ -139,7 +139,7 @@ class _ConnectionUtil {
             }
 
             buffer.marker = buffer.limit;
-
+u
             if (buffer.available() == 0) {
                 throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
             }
