@@ -139,7 +139,7 @@ class _ConnectionUtil {
             }
 
             buffer.marker = buffer.limit;
-u
+
             if (buffer.available() == 0) {
                 throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
             }
