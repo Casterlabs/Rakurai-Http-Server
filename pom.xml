@@ -61,8 +61,9 @@
 					</execution>
 				</executions>
 				<configuration>
-					<shadedArtifactAttached>true</shadedArtifactAttached>
+					<shadedArtifactAttached>false</shadedArtifactAttached>
 					<finalName>${project.name}</finalName>
+					<createDependencyReducedPom>false</createDependencyReducedPom>
 				</configuration>
 			</plugin>
 			<plugin>
