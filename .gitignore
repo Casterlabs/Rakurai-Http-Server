@@ -12,5 +12,3 @@ target/
 .DS_Store
 
 # Misc
-ssl/
-test.mp4
