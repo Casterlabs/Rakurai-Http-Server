@@ -1,0 +1,48 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>core</artifactId>
+
+	<parent>
+		<groupId>co.casterlabs.rakurai-http-server</groupId>
+		<artifactId>rakurai-http-server</artifactId>
+		<version>PLACEHOLDER</version>
+		<relativePath>../pom.xml</relativePath>
+	</parent>
+	
+	<dependencies>
+		<dependency>
+			<groupId>io.github.hakky54</groupId>
+			<artifactId>sslcontext-kickstart</artifactId>
+			<version>8.3.7</version>
+			<scope>compile</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>co.casterlabs.commons</groupId>
+			<artifactId>async</artifactId>
+			<version>d4647a1</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>co.casterlabs.commons</groupId>
+			<artifactId>functional</artifactId>
+			<version>d4647a1</version>
+			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>co.casterlabs.commons</groupId>
+			<artifactId>io</artifactId>
+			<version>d4647a1</version>
+			<scope>compile</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.github.e3ndr</groupId>
+			<artifactId>FastLoggingFramework</artifactId>
+			<version>1.12.1</version>
+			<scope>compile</scope>
+		</dependency>
+	</dependencies>
+</project>

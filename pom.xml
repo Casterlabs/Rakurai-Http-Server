@@ -1,10 +1,14 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>co.casterlabs</groupId>
+	<groupId>co.casterlabs.rakurai-http-server</groupId>
 	<artifactId>rakurai-http-server</artifactId>
-	<version>2.1.8</version>
+	<version>PLACEHOLDER</version>
+	<packaging>pom</packaging>
+
+	<modules>
+		<module>core</module>
+		<module>proto</module>
+	</modules>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -12,13 +16,6 @@
 	</properties>
 
 	<build>
-		<resources>
-			<resource>
-				<directory>src/main/resources</directory>
-				<filtering>true</filtering>
-			</resource>
-		</resources>
-
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -102,6 +99,7 @@
 		</repository>
 	</repositories>
 
+	<!-- Used across all of the project -->
 	<dependencies>
 		<dependency>
 			<groupId>org.projectlombok</groupId>
@@ -110,49 +108,18 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
+			<!-- For Eclipse users -->
 			<groupId>org.jetbrains</groupId>
 			<artifactId>annotations</artifactId>
 			<version>20.1.0</version>
 			<scope>provided</scope>
-		</dependency> <!-- For Eclipse users -->
-
-		<dependency>
-			<groupId>io.github.hakky54</groupId>
-			<artifactId>sslcontext-kickstart</artifactId>
-			<version>8.3.7</version>
-			<scope>compile</scope>
 		</dependency>
+		
 		<dependency>
 			<groupId>io.github.hakky54</groupId>
 			<artifactId>sslcontext-kickstart-for-pem</artifactId>
 			<version>8.3.7</version>
 			<scope>test</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>co.casterlabs.commons</groupId>
-			<artifactId>async</artifactId>
-			<version>d4647a1</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
-			<groupId>co.casterlabs.commons</groupId>
-			<artifactId>functional</artifactId>
-			<version>d4647a1</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
-			<groupId>co.casterlabs.commons</groupId>
-			<artifactId>io</artifactId>
-			<version>d4647a1</version>
-			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>com.github.e3ndr</groupId>
-			<artifactId>FastLoggingFramework</artifactId>
-			<version>1.12.1</version>
-			<scope>compile</scope>
 		</dependency>
 	</dependencies>
 </project>
