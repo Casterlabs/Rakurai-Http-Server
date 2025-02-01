@@ -8,6 +8,10 @@ import java.lang.annotation.Target;
 import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.rhs.HttpMethod;
+import co.casterlabs.rhs.protocol.api.preprocessors.NoOpPreprocessor;
+import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor;
+import co.casterlabs.rhs.protocol.http.HttpResponse;
+import co.casterlabs.rhs.protocol.http.HttpSession;
 import lombok.NonNull;
 
 /**
@@ -41,5 +45,7 @@ public @interface HttpEndpoint {
      */
     @NonNull
     String path();
+
+    Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() default NoOpPreprocessor.Http.class;
 
 }

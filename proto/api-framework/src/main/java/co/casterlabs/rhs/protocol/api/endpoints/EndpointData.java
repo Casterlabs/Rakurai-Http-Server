@@ -9,7 +9,12 @@ import lombok.experimental.Accessors;
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
-public class EndpointData {
+public class EndpointData<A /* This parameter type exists to provide a generic for Preprocessor attachments. */> {
     private final Map<String, String> uriParameters;
+
+    /**
+     * This comes from the preprocessor. Normally it is null.
+     */
+    private final A attachment;
 
 }

@@ -5,6 +5,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import co.casterlabs.rhs.protocol.api.preprocessors.NoOpPreprocessor;
+import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor;
+import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
+import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
 import lombok.NonNull;
 
 /**
@@ -22,5 +26,7 @@ public @interface WebsocketEndpoint {
      */
     @NonNull
     String path();
+
+    Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() default NoOpPreprocessor.Websocket.class;
 
 }

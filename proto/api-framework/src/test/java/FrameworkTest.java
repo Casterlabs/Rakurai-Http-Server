@@ -9,10 +9,11 @@ import co.casterlabs.rhs.HttpServer;
 import co.casterlabs.rhs.HttpServerBuilder;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
 import co.casterlabs.rhs.protocol.api.ApiFramework;
-import co.casterlabs.rhs.protocol.api.EndpointProvider;
 import co.casterlabs.rhs.protocol.api.endpoints.EndpointData;
+import co.casterlabs.rhs.protocol.api.endpoints.EndpointProvider;
 import co.casterlabs.rhs.protocol.api.endpoints.HttpEndpoint;
 import co.casterlabs.rhs.protocol.api.endpoints.WebsocketEndpoint;
+import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor;
 import co.casterlabs.rhs.protocol.http.HttpProtocol;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.protocol.http.HttpSession;
@@ -42,8 +43,8 @@ public class FrameworkTest implements EndpointProvider {
         server.start(); // Open up http://127.0.0.1:8080
     }
 
-    @HttpEndpoint(path = "/:param")
-    public HttpResponse onHttpTest(HttpSession session, EndpointData data) {
+    @HttpEndpoint(path = "/:param", preprocessor = TestPreprocessor.class)
+    public HttpResponse onHttpTest(HttpSession session, EndpointData<Void> data) {
         String str = String.format("Hello %s! Your route param: %s", session.remoteNetworkAddress(), data.uriParameters().get("param"));
         if (session.uri().path.startsWith("/chunked")) {
             return HttpResponse.newChunkedResponse(StandardHttpStatus.OK, new ByteArrayInputStream(str.getBytes()));
@@ -53,7 +54,7 @@ public class FrameworkTest implements EndpointProvider {
     }
 
     @WebsocketEndpoint(path = "/:param")
-    public WebsocketResponse onWebsocketTest(WebsocketSession session, EndpointData data) {
+    public WebsocketResponse onWebsocketTest(WebsocketSession session, EndpointData<Void> data) {
         return WebsocketResponse.accept(
             new WebsocketListener() {
                 @Override
@@ -74,6 +75,15 @@ public class FrameworkTest implements EndpointProvider {
             },
             session.firstProtocol()
         );
+    }
+
+    public static class TestPreprocessor implements Preprocessor.Http {
+
+        @Override
+        public void preprocess(HttpSession session, PreprocessorContext<HttpResponse> context) {
+            session.logger().info("Hello! I'm a preprocessor!");
+        }
+
     }
 
 }
