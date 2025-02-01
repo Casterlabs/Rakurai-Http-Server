@@ -13,6 +13,8 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.rhs.protocol.api.endpoints.EndpointData;
 import co.casterlabs.rhs.protocol.api.endpoints.HttpEndpoint;
 import co.casterlabs.rhs.protocol.api.endpoints.WebsocketEndpoint;
+import co.casterlabs.rhs.protocol.api.postprocessors.NoOpPostprocessor;
+import co.casterlabs.rhs.protocol.api.postprocessors.Postprocessor;
 import co.casterlabs.rhs.protocol.api.preprocessors.NoOpPreprocessor;
 import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor;
 import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor.PreprocessorContext;
@@ -26,27 +28,41 @@ import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
 import lombok.SneakyThrows;
 
-abstract class _EndpointWrapper<R, S, A> {
+abstract class _EndpointWrapper<R, S, N, A> {
     private final Method method;
     private final Object instance;
 
-    protected final A annotation;
+    protected final N annotation;
     protected final Pattern pattern;
 
     private String[] paramLabels; // Entry will be null if not a param
     private boolean hasParams;
 
     private Preprocessor<R, S> preprocessor;
+    private Postprocessor<R, S, A> postprocessor;
 
+    @SuppressWarnings("unchecked")
     @SneakyThrows
-    protected _EndpointWrapper(Method method, Object instance, String path, Class<? extends Preprocessor<R, S>> preprocessorClazz, A annotation) {
+    protected _EndpointWrapper(
+        Method method,
+        Object instance,
+        String path,
+        Class<? extends Preprocessor<R, S>> preprocessorClazz,
+        Class<? extends Postprocessor<R, S, ?>> postprocessorClazz,
+        N annotation
+    ) {
         this.method = method;
         this.instance = instance;
         this.annotation = annotation;
 
-        if (preprocessorClazz != NoOpPreprocessor.Http.class &&
+        if (preprocessorClazz != null &&
+            preprocessorClazz != NoOpPreprocessor.Http.class &&
             preprocessorClazz != NoOpPreprocessor.Websocket.class) {
             this.preprocessor = preprocessorClazz.getDeclaredConstructor().newInstance();
+        }
+
+        if (postprocessorClazz != null && postprocessorClazz != NoOpPostprocessor.Http.class) {
+            this.postprocessor = (Postprocessor<R, S, A>) postprocessorClazz.getDeclaredConstructor().newInstance();
         }
 
         String[] pathParts = path.split("/");
@@ -85,7 +101,7 @@ abstract class _EndpointWrapper<R, S, A> {
             uriParameters = Collections.emptyMap();
         }
 
-        Object preprocessorAttachment = null;
+        A preprocessorAttachment = null;
         if (this.preprocessor != null) {
             PreprocessorContext<R> context = new PreprocessorContext<>(uriParameters);
 
@@ -95,14 +111,20 @@ abstract class _EndpointWrapper<R, S, A> {
                 return context.respondEarly();
             }
 
-            preprocessorAttachment = context.attachment();
+            preprocessorAttachment = (A) context.attachment();
         }
 
-        EndpointData<?> data = new EndpointData<>(uriParameters, preprocessorAttachment);
-        return (R) this.method.invoke(this.instance, session, data);
+        EndpointData<A> data = new EndpointData<>(uriParameters, preprocessorAttachment);
+        R response = (R) this.method.invoke(this.instance, session, data);
+
+        if (response != null && this.postprocessor != null) {
+            this.postprocessor.postprocess(session, response, data);
+        }
+
+        return response;
     }
 
-    static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, HttpEndpoint> implements HttpProtoHandler {
+    static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, HttpEndpoint, Object> implements HttpProtoHandler {
 
         public _HttpEndpointWrapper(Method method, Object instance, HttpEndpoint annotation) {
             super(
@@ -110,6 +132,7 @@ abstract class _EndpointWrapper<R, S, A> {
                 instance,
                 annotation.path(),
                 annotation.preprocessor(),
+                annotation.postprocessor(),
                 annotation
             );
         }
@@ -129,7 +152,7 @@ abstract class _EndpointWrapper<R, S, A> {
 
     }
 
-    static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, WebsocketEndpoint> implements WebsocketHandler {
+    static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, WebsocketEndpoint, Object> implements WebsocketHandler {
 
         public _WebsocketEndpointWrapper(Method method, Object instance, WebsocketEndpoint annotation) {
             super(
@@ -137,6 +160,7 @@ abstract class _EndpointWrapper<R, S, A> {
                 instance,
                 annotation.path(),
                 annotation.preprocessor(),
+                null,
                 annotation
             );
         }

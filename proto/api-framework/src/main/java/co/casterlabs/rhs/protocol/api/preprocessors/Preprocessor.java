@@ -13,6 +13,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+/**
+ * This runs before your request handler method is invoked. You can use this to
+ * check parameters, authenticate, etc.
+ */
 public interface Preprocessor<E, S> {
 
     public void preprocess(S session, PreprocessorContext<E> context);
