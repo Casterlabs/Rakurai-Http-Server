@@ -6,7 +6,7 @@ import java.io.InputStream;
 import co.casterlabs.commons.io.streams.OverzealousInputStream;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpVersion;
-import co.casterlabs.rhs.protocol.http.HeaderValue;
+import co.casterlabs.rhs.protocol.exceptions.HttpException;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import co.casterlabs.rhs.util.WorkBuffer;
 import lombok.AllArgsConstructor;

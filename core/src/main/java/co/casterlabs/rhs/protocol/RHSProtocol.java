@@ -4,6 +4,9 @@ import java.io.IOException;
 
 import org.jetbrains.annotations.Nullable;
 
+import co.casterlabs.rhs.protocol.exceptions.DropConnectionException;
+import co.casterlabs.rhs.protocol.exceptions.HttpException;
+
 public abstract class RHSProtocol<S, R, H> {
 
     public abstract String name();

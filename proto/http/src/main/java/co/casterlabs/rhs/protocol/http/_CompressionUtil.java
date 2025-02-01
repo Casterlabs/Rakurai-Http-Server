@@ -10,6 +10,7 @@ import java.util.zip.GZIPOutputStream;
 
 import org.jetbrains.annotations.Nullable;
 
+import co.casterlabs.rhs.protocol.HeaderValue;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.http.HttpResponse.ResponseContent;
 

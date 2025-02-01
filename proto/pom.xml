@@ -11,6 +11,7 @@
 	</parent>
 	
 	<modules>
+		<module>http</module>
 		<module>websocket</module>
 	</modules>
 

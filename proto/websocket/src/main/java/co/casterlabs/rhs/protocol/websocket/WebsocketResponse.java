@@ -30,7 +30,7 @@ public abstract class WebsocketResponse {
      * @param    acceptedProtocol can be null if you do not wish to specify a
      *                            protocol. Note that some WebSocket clients might
      *                            expect you to pick one. See
-     *                            {@link WebsocketSession#protocols()}.
+     *                            {@link WebsocketSession#acceptedProtocols()}.
      * 
      * @implNote                  Defaults to a max payload length of 16mb
      */
@@ -44,7 +44,7 @@ public abstract class WebsocketResponse {
      *                         smaller than Integer.MAX_VALUE
      * @param acceptedProtocol can be null if you do not wish to specify a protocol.
      *                         Note that some WebSocket clients might expect you to
-     *                         pick one. See {@link WebsocketSession#protocols()}.
+     *                         pick one. See {@link WebsocketSession#acceptedProtocols()}.
      */
     public static WebsocketResponse accept(@NonNull WebsocketListener listener, @Nullable String acceptedProtocol, int maxPayloadLength) {
         assert maxPayloadLength > 65535 : "Max payload length must be larger than 64kb (65535 bytes).";

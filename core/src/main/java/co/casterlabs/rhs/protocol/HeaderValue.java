@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.protocol.http;
+package co.casterlabs.rhs.protocol;
 
 import java.util.ArrayList;
 import java.util.Arrays;

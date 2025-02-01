@@ -5,8 +5,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import co.casterlabs.commons.async.Lock;
-import co.casterlabs.rhs.protocol.HttpException;
 import co.casterlabs.rhs.protocol.RHSConnection;
+import co.casterlabs.rhs.protocol.exceptions.HttpException;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor

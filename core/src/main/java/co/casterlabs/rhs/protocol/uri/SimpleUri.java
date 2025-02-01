@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.protocol.http;
+package co.casterlabs.rhs.protocol.uri;
 
 import lombok.RequiredArgsConstructor;
 

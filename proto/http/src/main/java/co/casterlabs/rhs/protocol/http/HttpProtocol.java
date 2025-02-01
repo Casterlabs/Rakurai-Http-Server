@@ -14,10 +14,11 @@ import co.casterlabs.commons.io.streams.LimitedInputStream;
 import co.casterlabs.commons.io.streams.NonCloseableOutputStream;
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
-import co.casterlabs.rhs.protocol.DropConnectionException;
-import co.casterlabs.rhs.protocol.HttpException;
+import co.casterlabs.rhs.protocol.HeaderValue;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
+import co.casterlabs.rhs.protocol.exceptions.DropConnectionException;
+import co.casterlabs.rhs.protocol.exceptions.HttpException;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 
 public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpProtoHandler> {

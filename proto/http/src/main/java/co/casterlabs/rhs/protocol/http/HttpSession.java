@@ -11,7 +11,10 @@ import co.casterlabs.commons.io.streams.StreamUtil;
 import co.casterlabs.rhs.HttpMethod;
 import co.casterlabs.rhs.HttpVersion;
 import co.casterlabs.rhs.TLSVersion;
+import co.casterlabs.rhs.protocol.HeaderValue;
 import co.casterlabs.rhs.protocol.RHSConnection;
+import co.casterlabs.rhs.protocol.uri.Query;
+import co.casterlabs.rhs.protocol.uri.SimpleUri;
 import co.casterlabs.rhs.util.CaseInsensitiveMultiMap;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -148,8 +151,8 @@ public class HttpSession {
     public final String toString() {
         return new StringBuilder()
             .append("HttpSession(")
-            .append("\n    method=").append(this.rawMethod())
-            .append("\n    version=").append(this.httpVersion())
+            .append("\n    httpMethod=").append(this.rawMethod())
+            .append("\n    httpVersion=").append(this.httpVersion())
             .append("\n    uri=").append(this.uri())
             .append("\n    headers=").append(this.headers())
             .append("\n    serverPort=").append(this.serverPort())

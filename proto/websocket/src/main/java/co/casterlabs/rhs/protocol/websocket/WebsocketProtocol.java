@@ -19,11 +19,11 @@ import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.rhs.HttpStatus;
 import co.casterlabs.rhs.HttpStatus.StandardHttpStatus;
-import co.casterlabs.rhs.protocol.DropConnectionException;
-import co.casterlabs.rhs.protocol.HttpException;
+import co.casterlabs.rhs.protocol.HeaderValue;
 import co.casterlabs.rhs.protocol.RHSConnection;
 import co.casterlabs.rhs.protocol.RHSProtocol;
-import co.casterlabs.rhs.protocol.http.HeaderValue;
+import co.casterlabs.rhs.protocol.exceptions.DropConnectionException;
+import co.casterlabs.rhs.protocol.exceptions.HttpException;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse.AcceptedWebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse.RejectedWebsocketResponse;
@@ -93,7 +93,7 @@ public class WebsocketProtocol extends RHSProtocol<WebsocketSession, WebsocketRe
         responseHeaders.put("Upgrade", "websocket");
         responseHeaders.put("Connection", "Upgrade");
 
-        if (!session.protocols().isEmpty()) {
+        if (!session.acceptedProtocols().isEmpty()) {
             if (response.acceptedProtocol == null) {
                 throw new HttpException(WS_SUBPROTOCOL_REJECT);
             }

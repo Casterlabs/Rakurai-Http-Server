@@ -1,4 +1,4 @@
-package co.casterlabs.rhs.protocol;
+package co.casterlabs.rhs.protocol.exceptions;
 
 import co.casterlabs.rhs.HttpStatus;
 import lombok.ToString;
