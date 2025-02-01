@@ -9,53 +9,43 @@ Our very own Http server.
 ```xml
     <repositories>
         <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
+            <id>casterlabs-maven</id>
+            <url>https://repo.casterlabs.co/maven</url>
         </repository>
     </repositories>
 
     <dependencies>
         <dependency>
-            <groupId>co.casterlabs</groupId>
-            <artifactId>Rakurai-Http-Server</artifactId>
+            <groupId>co.casterlabs.rakurai-http-server</groupId>
+            <artifactId>core</artifactId>
+            <version>VERSION</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>co.casterlabs.rakurai-http-server.proto</groupId>
+            <artifactId>http</artifactId>
             <version>VERSION</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
 ```
 
-### Gradle
-
-```gradle
-    allprojects {
-        repositories {
-            maven { url 'https://jitpack.io' }
-        }
-	}
-
-    dependencies {
-        implementation 'co.casterlabs:Rakurai-Http-Server:VERSION'
-    }
-```
-
 ## Example Code
 
 ```java
 HttpServer server = new HttpServerBuilder()
-    .setPort(8080)
-    .build(new HttpListener() {
-        @Override
-        public @Nullable HttpResponse serveHttpSession(@NonNull HttpSession session) {
-            String body = String.format("Hello %s!", session.getRemoteIpAddress());
-            return HttpResponse
-                .newFixedLengthResponse(StandardHttpStatus.OK, body)
-                .setMimeType("text/plain");
+    .withPort(8080)
+    .with(
+        new HttpProtocol(), (session) -> {
+            String str = String.format("Hello %s!", session.remoteNetworkAddress());
+            if (session.uri().path.startsWith("/chunked")) {
+                return HttpResponse.newChunkedResponse(StandardHttpStatus.OK, new ByteArrayInputStream(str.getBytes()));
+            } else {
+                return HttpResponse.newFixedLengthResponse(StandardHttpStatus.OK, str);
+            }
         }
-        @Override
-        public @Nullable WebsocketListener serveWebsocketSession(@NonNull WebsocketSession session) {
-            // Returning null will drop the connection.
-            return null;
-        }
-    });
+    )
+    .build();
+
 server.start(); // Open up http://127.0.0.1:8080
 ```
