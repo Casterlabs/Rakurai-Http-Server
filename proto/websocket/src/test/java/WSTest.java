@@ -35,7 +35,7 @@ public class WSTest {
             )
             .build();
 
-        server.start(); // Open up http://127.0.0.1:8080
+        server.start(); // Open up ws://127.0.0.1:8080
     }
 
 }
