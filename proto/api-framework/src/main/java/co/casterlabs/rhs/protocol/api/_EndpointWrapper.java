@@ -86,11 +86,11 @@ abstract class _EndpointWrapper<R, S, N, A> {
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
-    protected @Nullable R handle(S session, String rawPath) {
+    protected @Nullable R handle(S session, String path) {
         Map<String, String> uriParameters = new HashMap<>();
 
         if (this.hasParams) {
-            String[] pathParts = rawPath.split("/");
+            String[] pathParts = path.split("/");
             Map<String, String> params = new HashMap<>();
             for (int i = 0; i < Math.min(pathParts.length, this.paramLabels.length); i++) {
                 if (this.paramLabels[i] == null) continue;
@@ -144,11 +144,11 @@ abstract class _EndpointWrapper<R, S, N, A> {
                 return null;
             }
 
-            if (!this.pattern.matcher(session.uri().rawPath).matches()) {
+            if (!this.pattern.matcher(session.uri().path).matches()) {
                 return null;
             }
 
-            return this.handle(session, session.uri().rawPath);
+            return this.handle(session, session.uri().path);
         }
 
     }
@@ -168,11 +168,11 @@ abstract class _EndpointWrapper<R, S, N, A> {
 
         @Override
         public WebsocketResponse handle(WebsocketSession session) {
-            if (!this.pattern.matcher(session.uri().rawPath).matches()) {
+            if (!this.pattern.matcher(session.uri().path).matches()) {
                 return null;
             }
 
-            return this.handle(session, session.uri().rawPath);
+            return this.handle(session, session.uri().path);
         }
 
     }
