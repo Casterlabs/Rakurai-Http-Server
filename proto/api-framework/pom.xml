@@ -5,7 +5,7 @@
 	<artifactId>api-framework</artifactId>
 
 	<parent>
-		<groupId>co.casterlabs.rakurai-http-server</groupId>
+		<groupId>co.casterlabs.rakurai-http-server.proto</groupId>
 		<artifactId>proto</artifactId>
 		<version>PLACEHOLDER</version>
 		<relativePath>../pom.xml</relativePath>
