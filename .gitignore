@@ -12,3 +12,4 @@ target/
 .DS_Store
 
 # Misc
+dependency-reduced-pom.xml

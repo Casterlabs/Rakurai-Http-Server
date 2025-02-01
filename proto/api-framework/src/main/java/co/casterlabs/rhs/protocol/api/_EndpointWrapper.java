@@ -56,12 +56,13 @@ abstract class _EndpointWrapper<R, S, N, A> {
         this.annotation = annotation;
 
         if (preprocessorClazz != null &&
-            preprocessorClazz != NoOpPreprocessor.Http.class &&
-            preprocessorClazz != NoOpPreprocessor.Websocket.class) {
+            !NoOpPreprocessor.Http.class.isAssignableFrom(preprocessorClazz) &&
+            !NoOpPreprocessor.Websocket.class.isAssignableFrom(preprocessorClazz)) {
             this.preprocessor = preprocessorClazz.getDeclaredConstructor().newInstance();
         }
 
-        if (postprocessorClazz != null && postprocessorClazz != NoOpPostprocessor.Http.class) {
+        if (postprocessorClazz != null &&
+            !NoOpPostprocessor.class.isAssignableFrom(postprocessorClazz)) {
             this.postprocessor = (Postprocessor<R, S, A>) postprocessorClazz.getDeclaredConstructor().newInstance();
         }
 
