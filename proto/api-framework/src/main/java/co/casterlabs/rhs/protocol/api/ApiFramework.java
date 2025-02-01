@@ -7,6 +7,7 @@ import java.util.List;
 import co.casterlabs.rhs.protocol.api._EndpointWrapper._HttpEndpointWrapper;
 import co.casterlabs.rhs.protocol.api._EndpointWrapper._WebsocketEndpointWrapper;
 import co.casterlabs.rhs.protocol.api.endpoints.EndpointData;
+import co.casterlabs.rhs.protocol.api.endpoints.EndpointProvider;
 import co.casterlabs.rhs.protocol.api.endpoints.HttpEndpoint;
 import co.casterlabs.rhs.protocol.api.endpoints.WebsocketEndpoint;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
