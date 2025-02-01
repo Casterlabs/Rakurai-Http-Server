@@ -13,6 +13,7 @@
 	<modules>
 		<module>http</module>
 		<module>websocket</module>
+		<module>api-framework</module>
 	</modules>
 
 	<!-- Used across all of the proto handler -->
