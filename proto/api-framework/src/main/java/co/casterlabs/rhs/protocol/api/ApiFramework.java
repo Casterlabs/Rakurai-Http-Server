@@ -2,7 +2,11 @@ package co.casterlabs.rhs.protocol.api;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import org.jetbrains.annotations.Nullable;
 
 import co.casterlabs.rhs.protocol.api._EndpointWrapper._HttpEndpointWrapper;
 import co.casterlabs.rhs.protocol.api._EndpointWrapper._WebsocketEndpointWrapper;
@@ -10,36 +14,24 @@ import co.casterlabs.rhs.protocol.api.endpoints.EndpointData;
 import co.casterlabs.rhs.protocol.api.endpoints.EndpointProvider;
 import co.casterlabs.rhs.protocol.api.endpoints.HttpEndpoint;
 import co.casterlabs.rhs.protocol.api.endpoints.WebsocketEndpoint;
+import co.casterlabs.rhs.protocol.api.postprocessors.NoOpPostprocessor;
+import co.casterlabs.rhs.protocol.api.postprocessors.Postprocessor;
+import co.casterlabs.rhs.protocol.api.preprocessors.NoOpPreprocessor;
+import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor;
 import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.protocol.http.HttpSession;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
+import lombok.SneakyThrows;
 
 public class ApiFramework {
-    private List<HttpProtoHandler> httpRoutes = new ArrayList<>();
-    private List<WebsocketHandler> websocketRoutes = new ArrayList<>();
-
-    public final HttpProtoHandler httpHandler = (session) -> {
-        for (HttpProtoHandler handler : this.httpRoutes) {
-            HttpResponse response = handler.handle(session);
-            if (response != null) {
-                return response;
-            }
-        }
-        return null;
-    };
-
-    public final WebsocketHandler websocketHandler = (session) -> {
-        for (WebsocketHandler handler : this.websocketRoutes) {
-            WebsocketResponse response = handler.handle(session);
-            if (response != null) {
-                return response;
-            }
-        }
-        return null;
-    };
+    /* ---------------- */
+    /* Endpoints        */
+    /* ---------------- */
+    private List<_HttpEndpointWrapper> httpEndpoints = new ArrayList<>();
+    private List<_WebsocketEndpointWrapper> websocketEndpoints = new ArrayList<>();
 
     public void register(EndpointProvider provider) {
         for (Method method : provider.getClass().getMethods()) {
@@ -52,7 +44,7 @@ public class ApiFramework {
                 }
 
                 HttpEndpoint annotation = method.getAnnotation(HttpEndpoint.class);
-                this.httpRoutes.add(
+                this.httpEndpoints.add(
                     new _HttpEndpointWrapper(method, provider, annotation)
                 );
             }
@@ -66,24 +58,103 @@ public class ApiFramework {
                 }
 
                 WebsocketEndpoint annotation = method.getAnnotation(WebsocketEndpoint.class);
-                this.websocketRoutes.add(
+                this.websocketEndpoints.add(
                     new _WebsocketEndpointWrapper(method, provider, annotation)
                 );
             }
         }
 
         // Sort by priority. Higher value means it should be at the head of the list.
-        this.httpRoutes.sort((e1, e2) -> -Integer.compare(e1.priority(), e2.priority()));
-        this.websocketRoutes.sort((e1, e2) -> -Integer.compare(e1.priority(), e2.priority()));
+        this.httpEndpoints.sort((e1, e2) -> -Integer.compare(e1.priority(), e2.priority()));
+        this.websocketEndpoints.sort((e1, e2) -> -Integer.compare(e1.priority(), e2.priority()));
     }
 
-    static <T extends Enum<?>> boolean arrayContains(T value, T[] arr) {
-        for (T v : arr) {
-            if (v == value) {
-                return true;
+    /* ---------------- */
+    /* Handlers         */
+    /* ---------------- */
+
+    public final HttpProtoHandler httpHandler = (session) -> {
+        for (_HttpEndpointWrapper handler : this.httpEndpoints) {
+            HttpResponse response = handler.handle(this, session);
+            if (response != null) {
+                return response;
             }
         }
-        return false;
+        return null;
+    };
+
+    public final WebsocketHandler websocketHandler = (session) -> {
+        for (_WebsocketEndpointWrapper handler : this.websocketEndpoints) {
+            WebsocketResponse response = handler.handle(this, session);
+            if (response != null) {
+                return response;
+            }
+        }
+        return null;
+    };
+
+    /* ---------------- */
+    /* Processing       */
+    /* ---------------- */
+
+    private Map<Class<? extends Preprocessor<?, ?>>, Preprocessor<?, ?>> preprocessorInstances = new HashMap<>();
+    private Map<Class<? extends Postprocessor<?, ?, ?>>, Postprocessor<?, ?, ?>> postprocessorInstances = new HashMap<>();
+
+    /**
+     * Allows you to instantiate a preprocessor. Otherwise, it is instantiated by
+     * calling the default no-args constructor which may not be desirable for all
+     * use cases.
+     * 
+     * @implNote You can replace the instance on-the-fly by calling this method
+     *           again.
+     */
+    public <T extends Preprocessor<?, ?>> void instantiatePreprocessor(Class<T> clazz, T instance) {
+        this.preprocessorInstances.put(clazz, instance);
+    }
+
+    /**
+     * Allows you to instantiate a postprocessor. Otherwise, it is instantiated by
+     * calling the default no-args constructor which may not be desirable for all
+     * use cases.
+     * 
+     * @implNote You can replace the instance on-the-fly by calling this method
+     *           again.
+     */
+    public <T extends Postprocessor<?, ?, ?>> void instantiatePostprocessor(Class<T> clazz, T instance) {
+        this.postprocessorInstances.put(clazz, instance);
+    }
+
+    @SneakyThrows
+    <R, S> @Nullable Preprocessor<R, S> getOrInstantiatePreprocessor(@Nullable Class<? extends Preprocessor<R, S>> clazz) {
+        if (clazz == null ||
+            NoOpPreprocessor.Http.class.isAssignableFrom(clazz) ||
+            NoOpPreprocessor.Websocket.class.isAssignableFrom(clazz)) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Preprocessor<R, S> p = (Preprocessor<R, S>) this.preprocessorInstances.get(clazz);
+        if (p == null) {
+            p = clazz.getDeclaredConstructor().newInstance();
+            this.preprocessorInstances.put(clazz, p);
+        }
+        return p;
+    }
+
+    @SneakyThrows
+    <R, S, A> @Nullable Postprocessor<R, S, A> getOrInstantiatePostprocessor(@Nullable Class<? extends Postprocessor<R, S, A>> clazz) {
+        if (clazz == null ||
+            NoOpPostprocessor.class.isAssignableFrom(clazz)) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        Postprocessor<R, S, A> p = (Postprocessor<R, S, A>) this.postprocessorInstances.get(clazz);
+        if (p == null) {
+            p = clazz.getDeclaredConstructor().newInstance();
+            this.postprocessorInstances.put(clazz, p);
+        }
+        return p;
     }
 
 }

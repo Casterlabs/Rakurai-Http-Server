@@ -28,6 +28,7 @@ public class FrameworkCorsExample implements EndpointProvider {
         ApiFramework framework = new ApiFramework();
 
         framework.register(new FrameworkCorsExample());
+//        framework.instantiatePostprocessor(CorsPostprocessor.class, new CorsPostprocessor()); // Optional, you can use this to add variables to your postprocessor.
 
         HttpServer server = new HttpServerBuilder()
             .withPort(8080)

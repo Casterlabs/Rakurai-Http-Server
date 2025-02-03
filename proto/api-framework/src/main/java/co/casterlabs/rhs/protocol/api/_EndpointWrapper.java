@@ -11,17 +11,13 @@ import org.jetbrains.annotations.Nullable;
 import co.casterlabs.rhs.protocol.api.endpoints.EndpointData;
 import co.casterlabs.rhs.protocol.api.endpoints.HttpEndpoint;
 import co.casterlabs.rhs.protocol.api.endpoints.WebsocketEndpoint;
-import co.casterlabs.rhs.protocol.api.postprocessors.NoOpPostprocessor;
 import co.casterlabs.rhs.protocol.api.postprocessors.Postprocessor;
-import co.casterlabs.rhs.protocol.api.preprocessors.NoOpPreprocessor;
 import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor;
 import co.casterlabs.rhs.protocol.api.preprocessors.Preprocessor.PreprocessorContext;
 import co.casterlabs.rhs.protocol.exceptions.DropConnectionException;
 import co.casterlabs.rhs.protocol.exceptions.HttpException;
-import co.casterlabs.rhs.protocol.http.HttpProtocol.HttpProtoHandler;
 import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.protocol.http.HttpSession;
-import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
 import lombok.SneakyThrows;
@@ -35,31 +31,14 @@ abstract class _EndpointWrapper<R, S, A> {
     private String[] paramLabels; // Entry will be null if not a param
     private boolean hasParams;
 
-    private Preprocessor<R, S> preprocessor;
-    private Postprocessor<R, S, A> postprocessor;
-
-    @SuppressWarnings("unchecked")
     @SneakyThrows
     protected _EndpointWrapper(
         Method method,
         Object instance,
-        String path,
-        Class<? extends Preprocessor<R, S>> preprocessorClazz,
-        Class<? extends Postprocessor<R, S, ?>> postprocessorClazz
+        String path
     ) {
         this.method = method;
         this.instance = instance;
-
-        if (preprocessorClazz != null &&
-            !NoOpPreprocessor.Http.class.isAssignableFrom(preprocessorClazz) &&
-            !NoOpPreprocessor.Websocket.class.isAssignableFrom(preprocessorClazz)) {
-            this.preprocessor = preprocessorClazz.getDeclaredConstructor().newInstance();
-        }
-
-        if (postprocessorClazz != null &&
-            !NoOpPostprocessor.class.isAssignableFrom(postprocessorClazz)) {
-            this.postprocessor = (Postprocessor<R, S, A>) postprocessorClazz.getDeclaredConstructor().newInstance();
-        }
 
         this.pattern = Pattern.compile(
             path.replaceAll(":[A-Za-z0-9-_]+", "[^/]*")
@@ -78,9 +57,13 @@ abstract class _EndpointWrapper<R, S, A> {
 
     public abstract int priority();
 
+    protected abstract Class<? extends Preprocessor<R, S>> preprocessor();
+
+    protected abstract Class<? extends Postprocessor<R, S, ?>> postprocessor();
+
     @SuppressWarnings("unchecked")
     @SneakyThrows
-    protected @Nullable R handle(S session, String path) {
+    protected @Nullable R handle(ApiFramework fw, S session, String path) {
         Map<String, String> uriParameters = new HashMap<>();
 
         if (this.hasParams) {
@@ -97,11 +80,12 @@ abstract class _EndpointWrapper<R, S, A> {
             uriParameters = Collections.emptyMap();
         }
 
+        Preprocessor<R, S> preprocessor = fw.getOrInstantiatePreprocessor(this.preprocessor());
         A preprocessorAttachment = null;
-        if (this.preprocessor != null) {
+        if (preprocessor != null) {
             PreprocessorContext<R> context = new PreprocessorContext<>(uriParameters);
 
-            this.preprocessor.preprocess(session, context);
+            preprocessor.preprocess(session, context);
 
             if (context.respondEarly() != null) {
                 return context.respondEarly();
@@ -113,23 +97,22 @@ abstract class _EndpointWrapper<R, S, A> {
         EndpointData<A> data = new EndpointData<>(uriParameters, preprocessorAttachment);
         R response = (R) this.method.invoke(this.instance, session, data);
 
-        if (response != null && this.postprocessor != null) {
-            this.postprocessor.postprocess(session, response, data);
+        Postprocessor<R, S, A> postprocessor = fw.getOrInstantiatePostprocessor((Class<? extends Postprocessor<R, S, A>>) this.postprocessor());
+        if (response != null && postprocessor != null) {
+            postprocessor.postprocess(session, response, data);
         }
 
         return response;
     }
 
-    static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, Object> implements HttpProtoHandler {
+    static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, Object> {
         private HttpEndpoint annotation;
 
         public _HttpEndpointWrapper(Method method, Object instance, HttpEndpoint annotation) {
             super(
                 method,
                 instance,
-                annotation.path(),
-                annotation.preprocessor(),
-                annotation.postprocessor()
+                annotation.path()
             );
             this.annotation = annotation;
         }
@@ -140,8 +123,17 @@ abstract class _EndpointWrapper<R, S, A> {
         }
 
         @Override
-        public HttpResponse handle(HttpSession session) throws HttpException, DropConnectionException {
-            if (!ApiFramework.arrayContains(session.method(), this.annotation.allowedMethods())) {
+        protected Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() {
+            return this.annotation.preprocessor();
+        }
+
+        @Override
+        protected Class<? extends Postprocessor<HttpResponse, HttpSession, ?>> postprocessor() {
+            return this.annotation.postprocessor();
+        }
+
+        public HttpResponse handle(ApiFramework fw, HttpSession session) throws HttpException, DropConnectionException {
+            if (!arrayContains(session.method(), this.annotation.allowedMethods())) {
                 return null;
             }
 
@@ -149,21 +141,19 @@ abstract class _EndpointWrapper<R, S, A> {
                 return null;
             }
 
-            return this.handle(session, session.uri().path);
+            return this.handle(fw, session, session.uri().path);
         }
 
     }
 
-    static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, Object> implements WebsocketHandler {
+    static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, Object> {
         private WebsocketEndpoint annotation;
 
         public _WebsocketEndpointWrapper(Method method, Object instance, WebsocketEndpoint annotation) {
             super(
                 method,
                 instance,
-                annotation.path(),
-                annotation.preprocessor(),
-                null
+                annotation.path()
             );
             this.annotation = annotation;
         }
@@ -174,14 +164,32 @@ abstract class _EndpointWrapper<R, S, A> {
         }
 
         @Override
-        public WebsocketResponse handle(WebsocketSession session) {
+        protected Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() {
+            return this.annotation.preprocessor();
+        }
+
+        @Override
+        protected Class<? extends Postprocessor<WebsocketResponse, WebsocketSession, Object>> postprocessor() {
+            return null; // Doesn't exist.
+        }
+
+        public WebsocketResponse handle(ApiFramework fw, WebsocketSession session) {
             if (!this.pattern.matcher(session.uri().path).matches()) {
                 return null;
             }
 
-            return this.handle(session, session.uri().path);
+            return this.handle(fw, session, session.uri().path);
         }
 
+    }
+
+    private static <T extends Enum<?>> boolean arrayContains(T value, T[] arr) {
+        for (T v : arr) {
+            if (v == value) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

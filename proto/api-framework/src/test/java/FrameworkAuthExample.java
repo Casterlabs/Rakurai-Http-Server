@@ -29,6 +29,7 @@ public class FrameworkAuthExample implements EndpointProvider {
         ApiFramework framework = new ApiFramework();
 
         framework.register(new FrameworkAuthExample());
+        framework.instantiatePreprocessor(AuthPreprocessor.class, new AuthPreprocessor()); // Optional, you can use this to add variables to your preprocessor.
 
         HttpServer server = new HttpServerBuilder()
             .withPort(8080)
