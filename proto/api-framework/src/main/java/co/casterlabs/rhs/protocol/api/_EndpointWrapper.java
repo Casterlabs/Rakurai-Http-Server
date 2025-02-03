@@ -1,12 +1,10 @@
 package co.casterlabs.rhs.protocol.api;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -66,15 +64,12 @@ abstract class _EndpointWrapper<R, S, N, A> {
             this.postprocessor = (Postprocessor<R, S, A>) postprocessorClazz.getDeclaredConstructor().newInstance();
         }
 
-        String[] pathParts = path.split("/");
-        this.paramLabels = new String[pathParts.length];
-
         this.pattern = Pattern.compile(
-            Arrays.stream(pathParts)
-                .map((p) -> p.startsWith(":") ? "[^/]*" : p)
-                .collect(Collectors.joining("/"))
+            path.replaceAll(":[A-Za-z0-9-_]+", "[^/]*")
         );
 
+        String[] pathParts = path.split("/");
+        this.paramLabels = new String[pathParts.length];
         for (int i = 0; i < pathParts.length; i++) {
             String part = pathParts[i];
             if (part.startsWith(":")) {
@@ -92,7 +87,8 @@ abstract class _EndpointWrapper<R, S, N, A> {
         if (this.hasParams) {
             String[] pathParts = path.split("/");
             Map<String, String> params = new HashMap<>();
-            for (int i = 0; i < Math.min(pathParts.length, this.paramLabels.length); i++) {
+            int minLength = Math.min(pathParts.length, this.paramLabels.length);
+            for (int i = 0; i < minLength; i++) {
                 if (this.paramLabels[i] == null) continue;
                 String part = pathParts[i];
                 params.put(this.paramLabels[i], part);

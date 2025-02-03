@@ -43,6 +43,9 @@ public @interface HttpEndpoint {
      * A regex expression to match the path. Use :paramName to decode path
      * parameters.
      * 
+     * @apiNote  Valid :paramName labels must only contain alpha-numeric or
+     *           underscore or hyphen. e.g :my-param or :my_param2 or :myparam
+     * 
      * @implNote :paramName is the regex-equivalent of [^/]*
      */
     @NonNull
