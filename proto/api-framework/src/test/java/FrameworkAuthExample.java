@@ -50,9 +50,9 @@ public class FrameworkAuthExample implements EndpointProvider {
         }
     }
 
-    public static class AuthPreprocessor implements Preprocessor.Http {
+    public static class AuthPreprocessor implements Preprocessor.Http<AuthorizedUser> {
         @Override
-        public void preprocess(HttpSession session, PreprocessorContext<HttpResponse> context) {
+        public void preprocess(HttpSession session, PreprocessorContext<HttpResponse, AuthorizedUser> context) {
             // Check if the user is localhost
             // Normal values: "127.0.0.1:12345", "[0:0:0:0:0:0:0:1]:12345"
 

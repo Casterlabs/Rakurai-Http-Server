@@ -98,7 +98,7 @@ public class ApiFramework {
     /* Processing       */
     /* ---------------- */
 
-    private Map<Class<? extends Preprocessor<?, ?>>, Preprocessor<?, ?>> preprocessorInstances = new HashMap<>();
+    private Map<Class<? extends Preprocessor<?, ?, ?>>, Preprocessor<?, ?, ?>> preprocessorInstances = new HashMap<>();
     private Map<Class<? extends Postprocessor<?, ?, ?>>, Postprocessor<?, ?, ?>> postprocessorInstances = new HashMap<>();
 
     /**
@@ -109,7 +109,7 @@ public class ApiFramework {
      * @implNote You can replace the instance on-the-fly by calling this method
      *           again.
      */
-    public <T extends Preprocessor<?, ?>> void instantiatePreprocessor(@NonNull Class<T> clazz, @NonNull T instance) {
+    public <T extends Preprocessor<?, ?, ?>> void instantiatePreprocessor(@NonNull Class<T> clazz, @NonNull T instance) {
         if (!clazz.isAssignableFrom(instance.getClass())) {
             throw new IllegalArgumentException("clazz must be assignable from instance.");
         }
@@ -132,7 +132,7 @@ public class ApiFramework {
     }
 
     @SneakyThrows
-    <R, S> @Nullable Preprocessor<R, S> getOrInstantiatePreprocessor(@Nullable Class<? extends Preprocessor<R, S>> clazz) {
+    <R, S, A> @Nullable Preprocessor<R, S, A> getOrInstantiatePreprocessor(@Nullable Class<? extends Preprocessor<R, S, A>> clazz) {
         if (clazz == null ||
             NoOpPreprocessor.Http.class.isAssignableFrom(clazz) ||
             NoOpPreprocessor.Websocket.class.isAssignableFrom(clazz)) {
@@ -140,7 +140,7 @@ public class ApiFramework {
         }
 
         @SuppressWarnings("unchecked")
-        Preprocessor<R, S> p = (Preprocessor<R, S>) this.preprocessorInstances.get(clazz);
+        Preprocessor<R, S, A> p = (Preprocessor<R, S, A>) this.preprocessorInstances.get(clazz);
         if (p == null) {
             p = clazz.getDeclaredConstructor().newInstance();
             this.preprocessorInstances.put(clazz, p);

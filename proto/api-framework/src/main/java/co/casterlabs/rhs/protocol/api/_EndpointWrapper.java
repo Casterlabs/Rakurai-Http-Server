@@ -54,7 +54,7 @@ abstract class _EndpointWrapper<R, S, A> {
 
     public abstract int priority();
 
-    protected abstract @Nullable Class<? extends Preprocessor<R, S>> preprocessor();
+    protected abstract @Nullable Class<? extends Preprocessor<R, S, ?>> preprocessor();
 
     protected abstract @Nullable Class<? extends Postprocessor<R, S, ?>> postprocessor();
 
@@ -77,10 +77,10 @@ abstract class _EndpointWrapper<R, S, A> {
             uriParameters = Collections.emptyMap();
         }
 
-        Preprocessor<R, S> preprocessor = fw.getOrInstantiatePreprocessor(this.preprocessor());
+        Preprocessor<R, S, A> preprocessor = fw.getOrInstantiatePreprocessor((Class<? extends Preprocessor<R, S, A>>) this.preprocessor());
         A preprocessorAttachment = null;
         if (preprocessor != null) {
-            PreprocessorContext<R> context = new PreprocessorContext<>(uriParameters);
+            PreprocessorContext<R, A> context = new PreprocessorContext<>(uriParameters);
 
             preprocessor.preprocess(session, context);
 
@@ -88,7 +88,7 @@ abstract class _EndpointWrapper<R, S, A> {
                 return context.respondEarly();
             }
 
-            preprocessorAttachment = (A) context.attachment();
+            preprocessorAttachment = context.attachment();
         }
 
         EndpointData<A> data = new EndpointData<>(uriParameters, preprocessorAttachment);
@@ -120,7 +120,7 @@ abstract class _EndpointWrapper<R, S, A> {
         }
 
         @Override
-        protected @Nullable Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() {
+        protected @Nullable Class<? extends Preprocessor<HttpResponse, HttpSession, ?>> preprocessor() {
             return this.annotation.preprocessor();
         }
 
@@ -161,12 +161,12 @@ abstract class _EndpointWrapper<R, S, A> {
         }
 
         @Override
-        protected @Nullable Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() {
+        protected @Nullable Class<? extends Preprocessor<WebsocketResponse, WebsocketSession, ?>> preprocessor() {
             return this.annotation.preprocessor();
         }
 
         @Override
-        protected @Nullable Class<? extends Postprocessor<WebsocketResponse, WebsocketSession, Object>> postprocessor() {
+        protected @Nullable Class<? extends Postprocessor<WebsocketResponse, WebsocketSession, ?>> postprocessor() {
             return null; // Doesn't exist.
         }
 

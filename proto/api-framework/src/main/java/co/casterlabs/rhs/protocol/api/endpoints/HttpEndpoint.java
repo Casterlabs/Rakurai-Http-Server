@@ -56,7 +56,7 @@ public @interface HttpEndpoint {
      */
     int priority() default 0;
 
-    Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() default NoOpPreprocessor.Http.class;
+    Class<? extends Preprocessor<HttpResponse, HttpSession, ?>> preprocessor() default NoOpPreprocessor.Http.class;
 
     Class<? extends Postprocessor<HttpResponse, HttpSession, ?>> postprocessor() default NoOpPostprocessor.Http.class;
 

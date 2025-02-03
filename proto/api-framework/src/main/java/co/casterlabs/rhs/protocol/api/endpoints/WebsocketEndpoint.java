@@ -35,6 +35,6 @@ public @interface WebsocketEndpoint {
      */
     int priority() default 0;
 
-    Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() default NoOpPreprocessor.Websocket.class;
+    Class<? extends Preprocessor<WebsocketResponse, WebsocketSession, ?>> preprocessor() default NoOpPreprocessor.Websocket.class;
 
 }

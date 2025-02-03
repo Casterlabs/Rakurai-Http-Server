@@ -83,9 +83,9 @@ public class FrameworkTest implements EndpointProvider {
         );
     }
 
-    public static class TestPreprocessor implements Preprocessor.Http {
+    public static class TestPreprocessor implements Preprocessor.Http<Void> {
         @Override
-        public void preprocess(HttpSession session, PreprocessorContext<HttpResponse> context) {
+        public void preprocess(HttpSession session, PreprocessorContext<HttpResponse, Void> context) {
             session.logger().info("Hello! I'm a preprocessor!");
         }
     }
