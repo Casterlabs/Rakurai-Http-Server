@@ -71,6 +71,10 @@ public class ApiFramework {
                 );
             }
         }
+
+        // Sort by priority. Higher value means it should be at the head of the list.
+        this.httpRoutes.sort((e1, e2) -> -Integer.compare(e1.priority(), e2.priority()));
+        this.websocketRoutes.sort((e1, e2) -> -Integer.compare(e1.priority(), e2.priority()));
     }
 
     static <T extends Enum<?>> boolean arrayContains(T value, T[] arr) {

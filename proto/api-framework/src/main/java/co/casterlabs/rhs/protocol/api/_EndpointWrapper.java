@@ -26,11 +26,10 @@ import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
 import lombok.SneakyThrows;
 
-abstract class _EndpointWrapper<R, S, N, A> {
+abstract class _EndpointWrapper<R, S, A> {
     private final Method method;
     private final Object instance;
 
-    protected final N annotation;
     protected final Pattern pattern;
 
     private String[] paramLabels; // Entry will be null if not a param
@@ -46,12 +45,10 @@ abstract class _EndpointWrapper<R, S, N, A> {
         Object instance,
         String path,
         Class<? extends Preprocessor<R, S>> preprocessorClazz,
-        Class<? extends Postprocessor<R, S, ?>> postprocessorClazz,
-        N annotation
+        Class<? extends Postprocessor<R, S, ?>> postprocessorClazz
     ) {
         this.method = method;
         this.instance = instance;
-        this.annotation = annotation;
 
         if (preprocessorClazz != null &&
             !NoOpPreprocessor.Http.class.isAssignableFrom(preprocessorClazz) &&
@@ -78,6 +75,8 @@ abstract class _EndpointWrapper<R, S, N, A> {
             }
         }
     }
+
+    public abstract int priority();
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
@@ -121,7 +120,8 @@ abstract class _EndpointWrapper<R, S, N, A> {
         return response;
     }
 
-    static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, HttpEndpoint, Object> implements HttpProtoHandler {
+    static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, Object> implements HttpProtoHandler {
+        private HttpEndpoint annotation;
 
         public _HttpEndpointWrapper(Method method, Object instance, HttpEndpoint annotation) {
             super(
@@ -129,9 +129,14 @@ abstract class _EndpointWrapper<R, S, N, A> {
                 instance,
                 annotation.path(),
                 annotation.preprocessor(),
-                annotation.postprocessor(),
-                annotation
+                annotation.postprocessor()
             );
+            this.annotation = annotation;
+        }
+
+        @Override
+        public int priority() {
+            return this.annotation.priority();
         }
 
         @Override
@@ -149,7 +154,8 @@ abstract class _EndpointWrapper<R, S, N, A> {
 
     }
 
-    static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, WebsocketEndpoint, Object> implements WebsocketHandler {
+    static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, Object> implements WebsocketHandler {
+        private WebsocketEndpoint annotation;
 
         public _WebsocketEndpointWrapper(Method method, Object instance, WebsocketEndpoint annotation) {
             super(
@@ -157,9 +163,14 @@ abstract class _EndpointWrapper<R, S, N, A> {
                 instance,
                 annotation.path(),
                 annotation.preprocessor(),
-                null,
-                annotation
+                null
             );
+            this.annotation = annotation;
+        }
+
+        @Override
+        public int priority() {
+            return this.annotation.priority();
         }
 
         @Override

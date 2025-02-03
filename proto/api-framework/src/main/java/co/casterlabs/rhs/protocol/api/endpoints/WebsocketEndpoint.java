@@ -30,6 +30,11 @@ public @interface WebsocketEndpoint {
     @NonNull
     String path();
 
+    /**
+     * Higher priorities are matched first.
+     */
+    int priority() default 0;
+
     Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() default NoOpPreprocessor.Websocket.class;
 
 }

@@ -44,6 +44,11 @@ public class FrameworkTest implements EndpointProvider {
         server.start(); // Open up http://127.0.0.1:8080
     }
 
+    @HttpEndpoint(path = ".*", priority = -1000)
+    public HttpResponse onNotFound(HttpSession session, EndpointData<Void> data) {
+        return HttpResponse.newFixedLengthResponse(StandardHttpStatus.NOT_FOUND, "Not found.");
+    }
+
     @HttpEndpoint(path = "/:param", preprocessor = TestPreprocessor.class, postprocessor = TestPostprocessor.class)
     public HttpResponse onHttpTest(HttpSession session, EndpointData<Void> data) {
         String str = String.format("Hello %s! Your route param: %s", session.remoteNetworkAddress(), data.uriParameters().get("param"));

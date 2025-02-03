@@ -51,6 +51,11 @@ public @interface HttpEndpoint {
     @NonNull
     String path();
 
+    /**
+     * Higher priorities are matched first.
+     */
+    int priority() default 0;
+
     Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() default NoOpPreprocessor.Http.class;
 
     Class<? extends Postprocessor<HttpResponse, HttpSession, ?>> postprocessor() default NoOpPostprocessor.Http.class;
