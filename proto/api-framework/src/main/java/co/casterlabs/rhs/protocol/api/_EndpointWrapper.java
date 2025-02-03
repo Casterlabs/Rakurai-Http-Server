@@ -1,6 +1,7 @@
 package co.casterlabs.rhs.protocol.api;
 
 import java.lang.reflect.Method;
+import java.net.URLDecoder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -69,7 +70,7 @@ abstract class _EndpointWrapper<R, S, A> {
             int minLength = Math.min(pathParts.length, this.paramLabels.length);
             for (int i = 0; i < minLength; i++) {
                 if (this.paramLabels[i] == null) continue;
-                String part = pathParts[i];
+                String part = URLDecoder.decode(pathParts[i], "UTF-8");
                 params.put(this.paramLabels[i], part);
             }
             uriParameters = Collections.unmodifiableMap(params);
