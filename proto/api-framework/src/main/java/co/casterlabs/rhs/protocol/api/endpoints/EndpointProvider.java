@@ -3,7 +3,7 @@ package co.casterlabs.rhs.protocol.api.endpoints;
 /**
  * <pre>
  * &#64;HttpEndpoint(uri = "/hello")
- * public HttpResponse onHelloRequest(HttpSession session, EndpointData&lt;Void&gt; data) {
+ * public @Nullable HttpResponse onHelloRequest(HttpSession session, EndpointData&lt;Void&gt; data) {
  *     // Do what you want, keeping in mind that returning null
  *     // or setting the status to NO_RESPONSE will cause the
  *     // connection will be dropped without a response.
@@ -13,7 +13,7 @@ package co.casterlabs.rhs.protocol.api.endpoints;
  * 
  * <pre>
  * &#64;WebsocketEndpoint(uri = "/echo")
- * public WebsocketListener onEchoRequest(WebsocketSession session, EndpointData&lt;Void&gt; data) {
+ * public @Nullable WebsocketListener onEchoRequest(WebsocketSession session, EndpointData&lt;Void&gt; data) {
  *     // Do what you want, keeping in mind that returning null
  *     // will cause the connection will be dropped without a response.
  *     return new WebsocketListener() {

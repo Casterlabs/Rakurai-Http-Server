@@ -24,6 +24,7 @@ import co.casterlabs.rhs.protocol.http.HttpSession;
 import co.casterlabs.rhs.protocol.websocket.WebsocketProtocol.WebsocketHandler;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 
 public class ApiFramework {
@@ -33,7 +34,7 @@ public class ApiFramework {
     private List<_HttpEndpointWrapper> httpEndpoints = new ArrayList<>();
     private List<_WebsocketEndpointWrapper> websocketEndpoints = new ArrayList<>();
 
-    public void register(EndpointProvider provider) {
+    public void register(@NonNull EndpointProvider provider) {
         for (Method method : provider.getClass().getMethods()) {
             if (method.isAnnotationPresent(HttpEndpoint.class)) {
                 if (method.getParameterCount() != 2 ||
@@ -108,7 +109,10 @@ public class ApiFramework {
      * @implNote You can replace the instance on-the-fly by calling this method
      *           again.
      */
-    public <T extends Preprocessor<?, ?>> void instantiatePreprocessor(Class<T> clazz, T instance) {
+    public <T extends Preprocessor<?, ?>> void instantiatePreprocessor(@NonNull Class<T> clazz, @NonNull T instance) {
+        if (!clazz.isAssignableFrom(instance.getClass())) {
+            throw new IllegalArgumentException("clazz must be assignable from instance.");
+        }
         this.preprocessorInstances.put(clazz, instance);
     }
 
@@ -120,7 +124,10 @@ public class ApiFramework {
      * @implNote You can replace the instance on-the-fly by calling this method
      *           again.
      */
-    public <T extends Postprocessor<?, ?, ?>> void instantiatePostprocessor(Class<T> clazz, T instance) {
+    public <T extends Postprocessor<?, ?, ?>> void instantiatePostprocessor(@NonNull Class<T> clazz, @NonNull T instance) {
+        if (!clazz.isAssignableFrom(instance.getClass())) {
+            throw new IllegalArgumentException("clazz must be assignable from instance.");
+        }
         this.postprocessorInstances.put(clazz, instance);
     }
 

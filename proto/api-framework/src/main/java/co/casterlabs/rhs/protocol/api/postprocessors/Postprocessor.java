@@ -8,7 +8,7 @@ import co.casterlabs.rhs.protocol.http.HttpSession;
  * Runs after your request handler method is invoked. You can use this to add
  * cors headers, etc.
  * 
- * @implNote Websockets do not have post processors.
+ * @apiNote Websockets do not have post processors.
  */
 public interface Postprocessor<R, S, A> {
 

@@ -20,6 +20,7 @@ import co.casterlabs.rhs.protocol.http.HttpResponse;
 import co.casterlabs.rhs.protocol.http.HttpSession;
 import co.casterlabs.rhs.protocol.websocket.WebsocketResponse;
 import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 
 abstract class _EndpointWrapper<R, S, A> {
@@ -32,11 +33,7 @@ abstract class _EndpointWrapper<R, S, A> {
     private boolean hasParams;
 
     @SneakyThrows
-    protected _EndpointWrapper(
-        Method method,
-        Object instance,
-        String path
-    ) {
+    protected _EndpointWrapper(@NonNull Method method, @NonNull Object instance, @NonNull String path) {
         this.method = method;
         this.instance = instance;
 
@@ -57,9 +54,9 @@ abstract class _EndpointWrapper<R, S, A> {
 
     public abstract int priority();
 
-    protected abstract Class<? extends Preprocessor<R, S>> preprocessor();
+    protected abstract @Nullable Class<? extends Preprocessor<R, S>> preprocessor();
 
-    protected abstract Class<? extends Postprocessor<R, S, ?>> postprocessor();
+    protected abstract @Nullable Class<? extends Postprocessor<R, S, ?>> postprocessor();
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
@@ -108,7 +105,7 @@ abstract class _EndpointWrapper<R, S, A> {
     static class _HttpEndpointWrapper extends _EndpointWrapper<HttpResponse, HttpSession, Object> {
         private HttpEndpoint annotation;
 
-        public _HttpEndpointWrapper(Method method, Object instance, HttpEndpoint annotation) {
+        public _HttpEndpointWrapper(@NonNull Method method, @NonNull Object instance, @NonNull HttpEndpoint annotation) {
             super(
                 method,
                 instance,
@@ -123,12 +120,12 @@ abstract class _EndpointWrapper<R, S, A> {
         }
 
         @Override
-        protected Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() {
+        protected @Nullable Class<? extends Preprocessor<HttpResponse, HttpSession>> preprocessor() {
             return this.annotation.preprocessor();
         }
 
         @Override
-        protected Class<? extends Postprocessor<HttpResponse, HttpSession, ?>> postprocessor() {
+        protected @Nullable Class<? extends Postprocessor<HttpResponse, HttpSession, ?>> postprocessor() {
             return this.annotation.postprocessor();
         }
 
@@ -149,7 +146,7 @@ abstract class _EndpointWrapper<R, S, A> {
     static class _WebsocketEndpointWrapper extends _EndpointWrapper<WebsocketResponse, WebsocketSession, Object> {
         private WebsocketEndpoint annotation;
 
-        public _WebsocketEndpointWrapper(Method method, Object instance, WebsocketEndpoint annotation) {
+        public _WebsocketEndpointWrapper(@NonNull Method method, @NonNull Object instance, @NonNull WebsocketEndpoint annotation) {
             super(
                 method,
                 instance,
@@ -164,12 +161,12 @@ abstract class _EndpointWrapper<R, S, A> {
         }
 
         @Override
-        protected Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() {
+        protected @Nullable Class<? extends Preprocessor<WebsocketResponse, WebsocketSession>> preprocessor() {
             return this.annotation.preprocessor();
         }
 
         @Override
-        protected Class<? extends Postprocessor<WebsocketResponse, WebsocketSession, Object>> postprocessor() {
+        protected @Nullable Class<? extends Postprocessor<WebsocketResponse, WebsocketSession, Object>> postprocessor() {
             return null; // Doesn't exist.
         }
 

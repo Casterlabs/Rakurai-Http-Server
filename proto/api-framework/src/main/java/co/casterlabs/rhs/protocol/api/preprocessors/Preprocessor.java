@@ -24,10 +24,19 @@ public interface Preprocessor<E, S> {
     @RequiredArgsConstructor
     @Accessors(fluent = true)
     public static class PreprocessorContext<E> {
-        private final @Getter Map<String, String> uriParameters;
 
-        private @Getter @Setter Object attachment;
-        private @Getter @Setter @Nullable E respondEarly;
+        @Getter
+        private final Map<String, String> uriParameters;
+
+        @Getter
+        @Setter
+        @Nullable
+        private Object attachment;
+
+        @Getter
+        @Setter
+        @Nullable
+        private E respondEarly;
 
     }
 
