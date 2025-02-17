@@ -242,15 +242,17 @@ class _ImplWebsocket13 extends Websocket {
             }
 
             // We're starting a new fragmented message, store this info for later.
-            if (!isFinished && op != 0) {
+            if (!isFinished && op != WebsocketOpCode.CONTINUATION) {
                 fragmentedOpCode = op;
+                op = WebsocketOpCode.CONTINUATION;
             }
 
             // Handle fragmented messages.
-            if (op == 0) {
+            if (op == WebsocketOpCode.CONTINUATION) {
                 fragmentedLength += payload.length;
                 if (fragmentedLength > this.response.maxPayloadLength) {
                     this.connection.logger.fatal("Fragmented payload length too large, max %d bytes got %d bytes.", this.response.maxPayloadLength, fragmentedLength);
+                    fragmentedPackets.clear();
                     return;
                 }
 
@@ -273,7 +275,6 @@ class _ImplWebsocket13 extends Websocket {
                 op = fragmentedOpCode;
                 fragmentedLength = 0;
                 fragmentedPackets.clear();
-                break;
             }
 
             // Parse the op code and do behavior tingz.
