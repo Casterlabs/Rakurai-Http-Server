@@ -29,6 +29,8 @@ import nl.altindag.ssl.SSLFactory;
 @Accessors(fluent = true)
 @SuppressWarnings("deprecation")
 public class HttpServerBuilder {
+    private static final int DEFAULT_KEEP_ALIVE_SECONDS = 60;
+
     @NonNull
     private @With String hostname;
 
@@ -45,6 +47,23 @@ public class HttpServerBuilder {
     private @With Map<String, Pair<RHSProtocol<?, ?, ?>, Object>> protocols;
 
     private @With TaskExecutor taskExecutor;
+
+    /**
+     * Negative or 0 to disable Keep-Alive
+     */
+    private @With int keepAliveSeconds;
+
+    /**
+     * {@link #keepAliveSeconds} will be used if it is larger than
+     * {@link #minSoTimeoutSeconds}.
+     * 
+     * It is recommended to set this to at least 30 seconds.
+     * 
+     * @implSpec Value cannot be negative or 0.
+     * 
+     * @implNote The websocket ping interval is always 5 seconds.
+     */
+    private @With int minSoTimeoutSeconds;
 
     public HttpServerBuilder() {
         this(
@@ -74,7 +93,9 @@ public class HttpServerBuilder {
                         return t.isAlive();
                     }
                 };
-            }
+            },
+            DEFAULT_KEEP_ALIVE_SECONDS,
+            DEFAULT_KEEP_ALIVE_SECONDS / 2
         );
     }
 

@@ -28,7 +28,6 @@ import xyz.e3ndr.fastloggingframework.logging.LogLevel;
 
 @RequiredArgsConstructor
 public class RHSConnection {
-    public static final int HTTP_PERSISTENT_TIMEOUT = 30;
     public static final Charset CHARSET = StandardCharsets.ISO_8859_1;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O");
@@ -55,9 +54,6 @@ public class RHSConnection {
 
     public final FastLogger logger;
 
-    public final int guessedMtu;
-
-    public final OverzealousInputStream input;
     /**
      * @deprecated This serves mostly as a warning to make you aware of the other
      *             response facilities.
@@ -66,6 +62,11 @@ public class RHSConnection {
      * @see        #respond(HttpStatus, Map)
      */
     public final @Deprecated OutputStream output;
+    public final OverzealousInputStream input;
+
+    public final int guessedMtu;
+    public final int keepAliveSeconds;
+    public final int soTimeout;
 
     public final String remoteAddress;
     public final int serverPort;
@@ -214,6 +215,8 @@ public class RHSConnection {
 
     public static RHSConnection accept(
         int guessedMtu,
+        int keepAliveSeconds,
+        int soTimeout,
         FastLogger logger,
         OverzealousInputStream input,
         OutputStream output,
@@ -235,7 +238,7 @@ public class RHSConnection {
 
         SimpleUri uri = SimpleUri.from(headers.getSingleOrDefault("Host", HeaderValue.EMPTY).raw(), requestLine.uriPath);
 
-        return new RHSConnection(logger, guessedMtu, input, output, remoteAddress, serverPort, requestLine.method, uri, headers, requestLine.httpVersion, tlsVersion, config);
+        return new RHSConnection(logger, output, input, guessedMtu, keepAliveSeconds, soTimeout, remoteAddress, serverPort, requestLine.method, uri, headers, requestLine.httpVersion, tlsVersion, config);
     }
 
 }

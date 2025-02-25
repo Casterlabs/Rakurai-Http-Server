@@ -70,15 +70,17 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
     @SuppressWarnings("deprecation")
     @Override
     public boolean process(HttpSession session, HttpResponse response, RHSConnection connection) throws IOException, HttpException, InterruptedException {
+        boolean keepAliveEnabled = connection.keepAliveSeconds > 0;
+
         try (response.content) {
-            boolean kaRequested = false;
+            boolean shouldKeepAlive = false;
 
             switch (connection.httpVersion) {
                 case HTTP_0_9:
                     break;
 
                 case HTTP_1_0:
-                    kaRequested = connection.headers.getOrDefault("Connection", Collections.emptyList())
+                    shouldKeepAlive = connection.headers.getOrDefault("Connection", Collections.emptyList())
                         .stream()
                         .map((h) -> h.delimited(","))
                         .flatMap(Collection::stream)
@@ -90,7 +92,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
 
                 case HTTP_1_1:
                     // Keep Alive is default in HTTP/1.1. So we look for a connection close instead.
-                    kaRequested = connection.headers.getOrDefault("Connection", Collections.emptyList())
+                    shouldKeepAlive = connection.headers.getOrDefault("Connection", Collections.emptyList())
                         .stream()
                         .map((h) -> h.delimited(","))
                         .flatMap(Collection::stream)
@@ -101,7 +103,11 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                     break;
             }
 
-            if (kaRequested && session.body().present()) {
+            if (!keepAliveEnabled) {
+                shouldKeepAlive = false;
+            }
+
+            if (shouldKeepAlive && session.body().present()) {
                 // Eat any remaining body bytes.
                 InputStream bodyStream = session.body().stream();
                 while (bodyStream.read() != -1) {
@@ -126,9 +132,9 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                         responseMode = ResponseMode.FIXED_LENGTH;
                         responseHeaders.put("Content-Length", String.valueOf(length));
 
-                        if (kaRequested) {
+                        if (shouldKeepAlive) {
                             responseHeaders.put("Connection", "keep-alive");
-                            responseHeaders.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                            responseHeaders.put("Keep-Alive", "timeout=" + connection.keepAliveSeconds);
                         }
                     }
                     break;
@@ -145,10 +151,10 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                         responseHeaders.put("Content-Length", String.valueOf(length));
                     }
 
-                    if (kaRequested) {
+                    if (shouldKeepAlive) {
                         // Add the keepalive headers.
                         responseHeaders.put("Connection", "keep-alive");
-                        responseHeaders.put("Keep-Alive", "timeout=" + RHSConnection.HTTP_PERSISTENT_TIMEOUT);
+                        responseHeaders.put("Keep-Alive", "timeout=" + connection.keepAliveSeconds);
                     } else {
                         // Let the client know that we will be closing the socket.
                         responseHeaders.put("Connection", "close");
@@ -195,7 +201,7 @@ public class HttpProtocol extends RHSProtocol<HttpSession, HttpResponse, HttpPro
                     break;
             }
 
-            return kaRequested && responseMode != ResponseMode.CLOSE_ON_COMPLETE;
+            return shouldKeepAlive && responseMode != ResponseMode.CLOSE_ON_COMPLETE;
         }
     }
 

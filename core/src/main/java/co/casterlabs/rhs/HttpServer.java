@@ -196,12 +196,14 @@ public class HttpServer {
             OutputStream output = new MTUOutputStream(clientSocket.getOutputStream(), guessedMtu);
 
             while (true) {
-                // Protocols can override this so we need to reset it every time.
-                clientSocket.setSoTimeout(RHSConnection.HTTP_PERSISTENT_TIMEOUT * 1000);
-                sessionLogger.trace("Set SO_TIMEOUT to %dms.", RHSConnection.HTTP_PERSISTENT_TIMEOUT * 1000);
+                int soTimeout = Math.max(this.config.keepAliveSeconds(), this.config.minSoTimeoutSeconds()) * 1000;
+                clientSocket.setSoTimeout(soTimeout);
+                sessionLogger.trace("Set SO_TIMEOUT to %dms.", soTimeout);
 
                 RHSConnection connection = RHSConnection.accept(
                     guessedMtu,
+                    this.config.keepAliveSeconds(),
+                    soTimeout,
                     sessionLogger,
                     input, output,
                     remoteAddress, port(),
