@@ -59,16 +59,16 @@ class _ConnectionUtil {
         HttpVersion version;
         try {
             version = HttpVersion.fromString(_ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' '));
-            buffer.marker++; // Consume the ' '
         } catch (IllegalArgumentException e) {
             throw new HttpException(HttpStatus.adapt(400, "Unsupported HTTP version"));
         }
 
+        // Consume the request line's trailing \r\n before pushing back any
+        // bytes that were over-read from the socket. This keeps request-line
+        // handling consistent with header-line handling below and avoids
+        // depending on a follow-up input.read() to discard the pushed-back \n.
+        buffer.marker = requestLineEnd + 2;
         input.append(buffer.raw, buffer.marker, buffer.limit);
-
-        // Discard 1 bytes to consume the \n at the \n at the end of the request line
-        // (note that readStringUtil has already consumed the \r).
-        input.read();
 
         return new RequestLineInfo(method, uriPath, version);
     }
@@ -151,7 +151,12 @@ class _ConnectionUtil {
                 }
             }
 
-            buffer.marker = buffer.limit;
+            // Do not advance marker here. It is the start of the current
+            // logical line, not just a scan cursor. If a header line spans
+            // multiple socket reads, moving marker to the end of the partial
+            // read discards the header name; the next read then parses the
+            // middle of the header value as a new header line. Re-scan the
+            // current line after appending more bytes instead.
 
             if (buffer.available() == 0) {
                 throw new HttpException(tooLongStatus);
