@@ -34,7 +34,7 @@ class _ConnectionUtil {
         WorkBuffer buffer = new WorkBuffer(MAX_REQUEST_LINE_LENGTH);
 
         // Request line
-        int requestLineEnd = _ConnectionUtil.readLine(input, buffer, guessedMtu);
+        int requestLineEnd = _ConnectionUtil.readLine(input, buffer, guessedMtu, HttpStatus.adapt(414, "Request URI Too Long"));
 
         String method = _ConnectionUtil.readStringUntil(buffer, requestLineEnd, ' ');
         buffer.marker++; // Consume the ' '
@@ -81,7 +81,7 @@ class _ConnectionUtil {
         String currentValue = null;
 
         while (true) {
-            int lineEnd = readLine(input, buffer, guessedMtu);
+            int lineEnd = readLine(input, buffer, guessedMtu, HttpStatus.adapt(431, "Request Header Fields Too Large"));
 
             if (lineEnd - buffer.marker == 0) {
                 // End of headers
@@ -89,6 +89,7 @@ class _ConnectionUtil {
                     headers.put(currentKey.trim(), new HeaderValue(currentValue.trim()));
                 }
 
+                buffer.marker += 2; // Consume \r\n.
                 break;
             }
 
@@ -96,14 +97,27 @@ class _ConnectionUtil {
             // previous header line. Example of what we're looking for:
             /* X-My-Header: some-value-1,\r\n  */
             /*              some-value-2\r\n   */
-            if (currentKey != null) {
-                if (buffer.raw[buffer.marker] == ' ' || buffer.raw[buffer.marker] == '\t') {
-                    currentValue += readStringUntil(buffer, lineEnd, '\r');
+            if (buffer.raw[buffer.marker] == ' ' || buffer.raw[buffer.marker] == '\t') {
+                if (currentKey == null) {
+                    throw new HttpException(HttpStatus.adapt(400, "Header continuation without previous header"));
                 }
+
+                currentValue += readStringUntil(buffer, lineEnd, '\r');
+                buffer.marker += 2; // +2 to consume \r\n.
+                compact(buffer);
+                continue;
+            }
+
+            if (currentKey != null) {
                 headers.put(currentKey.trim(), new HeaderValue(currentValue.trim()));
             }
 
             currentKey = readStringUntil(buffer, lineEnd, ':');
+
+            if (buffer.marker == lineEnd) {
+                throw new HttpException(HttpStatus.adapt(400, "Header is missing ':' separator"));
+            }
+
             buffer.marker++; // Consume the ':'
 
             if (currentKey.length() == 0) {
@@ -116,10 +130,9 @@ class _ConnectionUtil {
             if (currentValue.length() == 0) {
                 throw new HttpException(HttpStatus.adapt(400, "Header value was blank"));
             }
-        }
 
-        // Discard 2 bytes to consume the \r\n at the end of the header block
-        buffer.marker += 2;
+            compact(buffer);
+        }
 
         input.append(buffer.raw, buffer.marker, buffer.limit);
 
@@ -130,7 +143,7 @@ class _ConnectionUtil {
     /* Helpers          */
     /* ---------------- */
 
-    private static int readLine(InputStream in, WorkBuffer buffer, int guessedMtu) throws IOException, HttpException {
+    private static int readLine(InputStream in, WorkBuffer buffer, int guessedMtu, HttpStatus tooLongStatus) throws IOException, HttpException {
         while (true) {
             for (int bufferIndex = buffer.marker; bufferIndex < buffer.limit; bufferIndex++) {
                 if (buffer.raw[bufferIndex] == '\r' && buffer.raw[bufferIndex + 1] == '\n') {
@@ -141,7 +154,7 @@ class _ConnectionUtil {
             buffer.marker = buffer.limit;
 
             if (buffer.available() == 0) {
-                throw new HttpException(HttpStatus.adapt(400, "Request line or header line too long"));
+                throw new HttpException(tooLongStatus);
             }
 
             int amountToRead = Math.min(
@@ -156,6 +169,15 @@ class _ConnectionUtil {
                 buffer.limit += read;
             }
         }
+    }
+
+    private static void compact(WorkBuffer buffer) {
+        int remaining = buffer.limit - buffer.marker;
+        if (remaining > 0) {
+            System.arraycopy(buffer.raw, buffer.marker, buffer.raw, 0, remaining);
+        }
+        buffer.marker = 0;
+        buffer.limit = remaining;
     }
 
     private static String readStringUntil(WorkBuffer buffer, int limit, char target) throws IOException, HttpException {

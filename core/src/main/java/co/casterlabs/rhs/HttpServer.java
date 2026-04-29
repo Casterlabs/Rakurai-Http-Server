@@ -200,16 +200,22 @@ public class HttpServer {
                 clientSocket.setSoTimeout(soTimeout);
                 sessionLogger.trace("Set SO_TIMEOUT to %dms.", soTimeout);
 
-                RHSConnection connection = RHSConnection.accept(
-                    guessedMtu,
-                    this.config.keepAliveSeconds(),
-                    soTimeout,
-                    sessionLogger,
-                    input, output,
-                    remoteAddress, port(),
-                    tlsVersion,
-                    this.config
-                );
+                RHSConnection connection;
+                try {
+                    connection = RHSConnection.accept(
+                        guessedMtu,
+                        this.config.keepAliveSeconds(),
+                        soTimeout,
+                        sessionLogger,
+                        input, output,
+                        remoteAddress, port(),
+                        tlsVersion,
+                        this.config
+                    );
+                } catch (HttpException e) {
+                    respondBareHttpError(output, e.status, this.config.serverHeader());
+                    return;
+                }
 
                 try {
                     sessionLogger.debug("Handling request...");
@@ -270,7 +276,7 @@ public class HttpServer {
                     connection.respond(e.status);
                 }
             }
-        } catch (DropConnectionException | HttpException d) {
+        } catch (DropConnectionException d) {
             sessionLogger.debug("Dropping connection!\n%s", d);
         } catch (Throwable e) {
             if (shouldIgnoreThrowable(e)) {
@@ -329,6 +335,17 @@ public class HttpServer {
              */
             return 1500 - 60;
         }
+    }
+
+    private static void respondBareHttpError(OutputStream output, HttpStatus status, String serverHeader) throws IOException {
+        String response = "HTTP/1.1 " + status.statusString() + "\r\n"
+            + "Content-Length: 0\r\n"
+            + "Content-Type: application/octet-stream\r\n"
+            + "Connection: close\r\n"
+            + "Server: " + serverHeader + "\r\n"
+            + "\r\n";
+        output.write(response.getBytes(RHSConnection.CHARSET));
+        output.flush();
     }
 
     private static final Class<?>[] SILENCED_THROWABLES = {
