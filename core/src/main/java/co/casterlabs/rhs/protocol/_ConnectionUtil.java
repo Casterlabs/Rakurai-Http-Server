@@ -145,7 +145,7 @@ class _ConnectionUtil {
 
     private static int readLine(InputStream in, WorkBuffer buffer, int guessedMtu, HttpStatus tooLongStatus) throws IOException, HttpException {
         while (true) {
-            for (int bufferIndex = buffer.marker; bufferIndex < buffer.limit; bufferIndex++) {
+            for (int bufferIndex = buffer.marker; bufferIndex + 1 < buffer.limit; bufferIndex++) {
                 if (buffer.raw[bufferIndex] == '\r' && buffer.raw[bufferIndex + 1] == '\n') {
                     return bufferIndex; // End of line, break!
                 }
