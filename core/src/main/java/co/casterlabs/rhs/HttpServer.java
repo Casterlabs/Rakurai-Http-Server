@@ -213,6 +213,7 @@ public class HttpServer {
                         this.config
                     );
                 } catch (HttpException e) {
+                    sessionLogger.debug("An error occurred whilst accepting request:\n%s", e);
                     respondBareHttpError(output, e.status, this.config.serverHeader());
                     return;
                 }
