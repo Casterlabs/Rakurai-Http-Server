@@ -18,8 +18,8 @@ public abstract class WebsocketResponse {
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-    static class RejectedWebsocketResponse extends WebsocketResponse {
-        final HttpStatus status;
+    public static class RejectedWebsocketResponse extends WebsocketResponse {
+        public final HttpStatus status;
     }
 
     /* ---------------- */
@@ -44,7 +44,8 @@ public abstract class WebsocketResponse {
      *                         smaller than Integer.MAX_VALUE
      * @param acceptedProtocol can be null if you do not wish to specify a protocol.
      *                         Note that some WebSocket clients might expect you to
-     *                         pick one. See {@link WebsocketSession#acceptedProtocols()}.
+     *                         pick one. See
+     *                         {@link WebsocketSession#acceptedProtocols()}.
      */
     public static WebsocketResponse accept(@NonNull WebsocketListener listener, @Nullable String acceptedProtocol, int maxPayloadLength) {
         assert maxPayloadLength > 65535 : "Max payload length must be larger than 64kb (65535 bytes).";
@@ -53,10 +54,10 @@ public abstract class WebsocketResponse {
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-    static class AcceptedWebsocketResponse extends WebsocketResponse {
-        final WebsocketListener listener;
-        final @Nullable String acceptedProtocol;
-        final int maxPayloadLength;
+    public static class AcceptedWebsocketResponse extends WebsocketResponse {
+        public final WebsocketListener listener;
+        public final @Nullable String acceptedProtocol;
+        public final int maxPayloadLength;
     }
 
 }

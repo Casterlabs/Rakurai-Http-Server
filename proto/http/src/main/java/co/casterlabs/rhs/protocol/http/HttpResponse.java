@@ -30,7 +30,6 @@ public class HttpResponse {
     private static final Set<String> DISALLOWED_RESPONSE_HEADERS = Arrays.asList(
         "Connection",
         "Content-Length",
-        "Content-Length",
         "Content-Encoding",
         "Keep-Alive",
         "Sever",
@@ -50,9 +49,9 @@ public class HttpResponse {
     public static final HttpResponse NO_RESPONSE = HttpResponse.newFixedLengthResponse(StandardHttpStatus.NO_RESPONSE, EMPTY_BODY);
     public static final HttpResponse INTERNAL_ERROR = HttpResponse.newFixedLengthResponse(StandardHttpStatus.INTERNAL_ERROR, EMPTY_BODY);
 
-    final Map<String, String> headers = new HashMap<>();
-    final ResponseContent content;
-    final HttpStatus status;
+    public final HttpStatus status;
+    public final Map<String, String> headers = new HashMap<>();
+    public final ResponseContent content;
 
     public HttpResponse(@NonNull ResponseContent content, @NonNull HttpStatus status) {
         this.content = content;
