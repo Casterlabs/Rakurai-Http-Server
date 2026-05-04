@@ -10,17 +10,19 @@ import lombok.experimental.Accessors;
 
 @Accessors(fluent = true)
 @RequiredArgsConstructor
-public class EndpointData<A /* This parameter type exists to provide a generic for Preprocessor attachments. */> {
+public class EndpointData<ATTACHMENT /* This parameter type exists to provide a generic for Preprocessor attachments. */> {
 
     @Getter
     private final Map<String, String> uriParameters;
 
+    @Getter
+    private final String annotationPath;
+
     /**
      * This comes from the preprocessor. Normally it is null.
      */
-    @Getter(onMethod_ = {
-            @Nullable
-    })
-    private final A attachment;
+    @Getter
+    @Nullable
+    private final ATTACHMENT attachment;
 
 }

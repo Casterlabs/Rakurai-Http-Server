@@ -17,26 +17,29 @@ import lombok.experimental.Accessors;
  * This runs before your request handler method is invoked. You can use this to
  * check parameters, authenticate, etc.
  */
-public interface Preprocessor<E, S, A> {
+public interface Preprocessor<EARLY, SESSION, ATTACHMENT> {
 
-    public void preprocess(S session, PreprocessorContext<E, A> context);
+    public void preprocess(SESSION session, PreprocessorContext<EARLY, ATTACHMENT> context);
 
     @RequiredArgsConstructor
     @Accessors(fluent = true)
-    public static class PreprocessorContext<E, A> {
+    public static class PreprocessorContext<EARLY, ATTACHMENT> {
 
         @Getter
         private final Map<String, String> uriParameters;
 
         @Getter
-        @Setter
-        @Nullable
-        private A attachment;
+        private final String annotationPath;
 
         @Getter
         @Setter
         @Nullable
-        private E respondEarly;
+        private ATTACHMENT attachment;
+
+        @Getter
+        @Setter
+        @Nullable
+        private EARLY respondEarly;
 
     }
 
@@ -44,10 +47,10 @@ public interface Preprocessor<E, S, A> {
     /* Helpers          */
     /* ---------------- */
 
-    public static interface Http<A> extends Preprocessor<HttpResponse, HttpSession, A> {
+    public static interface Http<ATTACHMENT> extends Preprocessor<HttpResponse, HttpSession, ATTACHMENT> {
     }
 
-    public static interface Websocket<A> extends Preprocessor<WebsocketResponse, WebsocketSession, A> {
+    public static interface Websocket<ATTACHMENT> extends Preprocessor<WebsocketResponse, WebsocketSession, ATTACHMENT> {
     }
 
 }

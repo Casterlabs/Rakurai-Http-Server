@@ -24,9 +24,10 @@ import co.casterlabs.rhs.protocol.websocket.WebsocketSession;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-abstract class _EndpointWrapper<R, S, A> {
+abstract class _EndpointWrapper<RESPONSE, SESSION, ATTACHMENT> {
     private final Method method;
     private final Object instance;
+    private final String path;
 
     protected final Pattern pattern;
 
@@ -37,6 +38,7 @@ abstract class _EndpointWrapper<R, S, A> {
     protected _EndpointWrapper(@NonNull Method method, @NonNull Object instance, @NonNull String path) {
         this.method = method;
         this.instance = instance;
+        this.path = path;
 
         this.pattern = Pattern.compile(
             path.replaceAll(":[A-Za-z0-9-_]+", "[^/]*")
@@ -55,13 +57,13 @@ abstract class _EndpointWrapper<R, S, A> {
 
     public abstract int priority();
 
-    protected abstract @Nullable Class<? extends Preprocessor<R, S, ?>> preprocessor();
+    protected abstract @Nullable Class<? extends Preprocessor<RESPONSE, SESSION, ?>> preprocessor();
 
-    protected abstract @Nullable Class<? extends Postprocessor<R, S, ?>> postprocessor();
+    protected abstract @Nullable Class<? extends Postprocessor<RESPONSE, SESSION, ?>> postprocessor();
 
     @SuppressWarnings("unchecked")
     @SneakyThrows
-    protected @Nullable R handle(ApiFramework fw, S session, String path) {
+    protected @Nullable RESPONSE handle(ApiFramework fw, SESSION session, String path) {
         Map<String, String> uriParameters = new HashMap<>();
 
         if (this.hasParams) {
@@ -78,24 +80,28 @@ abstract class _EndpointWrapper<R, S, A> {
             uriParameters = Collections.emptyMap();
         }
 
-        Preprocessor<R, S, A> preprocessor = fw.getOrInstantiatePreprocessor((Class<? extends Preprocessor<R, S, A>>) this.preprocessor());
-        A preprocessorAttachment = null;
+        // We run the preprocessor first, and if it returns a response, we skip the
+        // handler method. This allows the post processor to run regardless of whether
+        // the preprocessor or the handler method returned a response.
+        RESPONSE response = null;
+
+        Preprocessor<RESPONSE, SESSION, ATTACHMENT> preprocessor = fw.getOrInstantiatePreprocessor((Class<? extends Preprocessor<RESPONSE, SESSION, ATTACHMENT>>) this.preprocessor());
+        ATTACHMENT preprocessorAttachment = null;
         if (preprocessor != null) {
-            PreprocessorContext<R, A> context = new PreprocessorContext<>(uriParameters);
+            PreprocessorContext<RESPONSE, ATTACHMENT> context = new PreprocessorContext<>(uriParameters, this.path);
 
             preprocessor.preprocess(session, context);
 
-            if (context.respondEarly() != null) {
-                return context.respondEarly();
-            }
-
+            response = context.respondEarly(); // Either null or a response.
             preprocessorAttachment = context.attachment();
         }
 
-        EndpointData<A> data = new EndpointData<>(uriParameters, preprocessorAttachment);
-        R response = (R) this.method.invoke(this.instance, session, data);
+        EndpointData<ATTACHMENT> data = new EndpointData<>(uriParameters, this.path, preprocessorAttachment);
+        if (response == null) {
+            response = (RESPONSE) this.method.invoke(this.instance, session, data);
+        }
 
-        Postprocessor<R, S, A> postprocessor = fw.getOrInstantiatePostprocessor((Class<? extends Postprocessor<R, S, A>>) this.postprocessor());
+        Postprocessor<RESPONSE, SESSION, ATTACHMENT> postprocessor = fw.getOrInstantiatePostprocessor((Class<? extends Postprocessor<RESPONSE, SESSION, ATTACHMENT>>) this.postprocessor());
         if (response != null && postprocessor != null) {
             postprocessor.postprocess(session, response, data);
         }

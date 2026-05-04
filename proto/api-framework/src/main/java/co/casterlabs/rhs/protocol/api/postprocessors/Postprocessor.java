@@ -10,15 +10,15 @@ import co.casterlabs.rhs.protocol.http.HttpSession;
  * 
  * @apiNote Websockets do not have post processors.
  */
-public interface Postprocessor<R, S, A> {
+public interface Postprocessor<RESPONSE, SESSION, ATTACHMENT> {
 
-    public void postprocess(S session, R response, EndpointData<A> data);
+    public void postprocess(SESSION session, RESPONSE response, EndpointData<ATTACHMENT> data);
 
     /* ---------------- */
     /* Helpers          */
     /* ---------------- */
 
-    public static interface Http<A> extends Postprocessor<HttpResponse, HttpSession, A> {
+    public static interface Http<ATTACHMENT> extends Postprocessor<HttpResponse, HttpSession, ATTACHMENT> {
     }
 
 }
